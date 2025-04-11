@@ -1,0 +1,76 @@
+{
+    "eventType": "TASK_COMPLETION",
+    "taskId": "${taskId}",
+    "parentTaskId": "${parentTaskId}",
+    "workflowName": "${workflowName}",
+    "stageId": "${stageId}",
+    "modeUsed": "${modeUsed}",
+    "completionTimestamp": "${completionTimestamp}",
+    "completionDurationMs": "${completionDurationMs}",
+    "status": "Success",
+    "summary": "${summaryFromDelegate}",
+    "keywords": [
+      "${keyword1}",
+      "${keyword2}"
+    ],
+    "deliverables": {
+      "files_created": [
+        "${createdFilePath1}",
+        "${createdFilePath2}"
+      ],
+      "files_modified": [
+        "${modifiedFilePath1}",
+        "${modifiedFilePath2}"
+      ],
+      "files_deleted": [
+        "${deletedFilePath1}"
+      ],
+      "artifacts_produced": [
+        {
+          "type": "${artifactType}",
+          "description": "${artifactDescription}",
+          "location": "${artifactLocationOrReference}"
+        }
+      ]
+    },
+    "details": {
+      "key_components_involved": [
+        "${componentName1}",
+        "${componentName2}"
+      ],
+      "design_decisions": [
+        {
+          "decision": "${decisionDescription1}",
+          "rationale": "${rationaleForDecision1}",
+          "alternatives_considered": [
+            "${alternative1a}",
+            "${alternative1b}"
+          ]
+        }
+      ],
+      "technical_notes": "${freeformTechnicalObservations}",
+      "dependencies_added_or_used": [
+        "${dependencyName1}",
+        "${dependencyName2}"
+      ],
+      "tradeoffs_made": "${descriptionOfTradeoffs}"
+    },
+    "quality": {
+      "test_coverage_change": "${coverageDescriptionOrNA}",
+      "performance_impact_assessment": "${perfImpactDescriptionOrNA}",
+      "code_quality_assessment": "${codeQualityDescriptionOrNA}"
+    },
+    "workflow_context": {
+      "next_steps_suggested": [
+        "${suggestedNextStep1}",
+        "${suggestedNextStep2}"
+      ],
+      "future_considerations": [
+        "${futureConsideration1}"
+      ],
+      "requirements_satisfied": [
+        "${reqId1}",
+        "${reqId2}"
+      ]
+    }
+  }

@@ -1,0 +1,50 @@
+{
+    "eventType": "ISSUE_REPORT",
+    "taskId": "${taskId}",
+    "parentTaskId": "${parentTaskId}",
+    "workflowName": "${workflowName}",
+    "stageId": "${stageId}",
+    "modeUsed": "${modeUsed}",
+    "failureTimestamp": "${failureTimestamp}",
+    "status": "Failure",
+    "keywords": [
+      "${keyword1}",
+      "${keyword2}",
+      "error",
+      "failure"
+    ],
+    "issue": {
+      "category": "${issueCategory}",
+      "severity": "${severityEstimate}",
+      "summary": "${failureSummaryFromDelegate}",
+      "details": "${failureDetailsFromDelegate}",
+      "context": "${relevantFailureContextFromDelegate}"
+    },
+    "impact_assessment": {
+      "blocked_stages": [
+        "${blockedStage1}",
+        "${blockedStage2}"
+      ],
+      "affected_components": [
+        "${affectedComponent1}",
+        "${affectedComponent2}"
+      ],
+      "estimated_timeline_impact": "${timelineImpactEstimate}"
+    },
+    "analysis": {
+      "current_state_description": "${observedStateBeforeFailure}",
+      "initial_rca_hypothesis": "${modeGuessAtRootCause}",
+      "relevant_code_or_files": [
+        "${filePath1}",
+        "${filePath2}"
+      ]
+    },
+    "resolution": {
+      "suggested_next_action": "${modeSuggestionForNextStep}",
+      "required_input_for_resolution": "${informationNeeded}",
+      "required_action_from_boomerang": [
+        "${actionType1}",
+        "${actionType2}"
+      ]
+    }
+  }
