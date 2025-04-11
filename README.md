@@ -1,4 +1,8 @@
-# Boomerang Software Engineering Orchestrator (Dan Mode)
+<p align="center">
+  <img src=".roo-docs\dangeroo.png" alt="DangerRoo - Boomerang Mode" width="500"/>
+</p>
+
+# Dangeroo Mode - (Boomerang) Software Engineering Orchestrator
 
 ## Overview
 
@@ -79,75 +83,82 @@ flowchart TD
 
     subgraph BoomerangOrchestration [Boomerang Orchestration Process]
         direction TB
-        A["Start | Receive User Request"] --> B[Review Relevant Memory Bank Files]
-        B -- Uses Context --> C[Atom-of-Thought Breakdown of Request]
-        C --> D[Select Appropriate Specialized Mode]
-        D --> J[Formulate Subtask Instructions]
+        A["Start | Receive User Request"] --> B_delegate[Delegate Initial Memory Review/Setup Task]; 
+        B_delegate --> B_exec["MemoryKeeper: Read Context / Create Files"]; 
+        B_exec --> B_res["MemoryKeeper: Return Context / Confirm Setup"]; 
+        B_res -- Provides Initial Context --> C["Atom-of-Thought Breakdown & Evaluation\n(Ensure minimal, self-contained steps)"]; 
+
+        C --> D[Select Appropriate Specialized Mode];
+        D --> J[Formulate Subtask Instructions];
 
         subgraph SubtaskInstructionDetails [Instructions for Delegated Mode]
             direction TB
-            J1["Context (from Memory Bank | Parent Task)"]
+            J1["Context (Initial & Ongoing)"] 
             J2[Clearly Defined Scope]
-            J_EnvAware[Note: Environment Assumptions] 
+            J_EnvAware[Note: Environment Assumptions]
             J3[Constraint: Only Perform Outlined Work]
-            J_Safety[Constraint: Safety Check before Risky Tools] 
-            J_Idem[Note: Strive for Idempotency/Minimal Side Effects] 
+            J_Safety[Constraint: Safety Check before Risky Tools]
+            J_Idem[Note: Strive for Idempotency/Minimal Side Effects]
             J4[Requirement: Signal Completion via 'attempt_completion']
             J4a[Requirement: Report Failures via 'attempt_completion' w/ Details]
             J5["Requirement: Provide Concise Result Summary (Success/Failure)"]
             J6[Rule: These Instructions Override Mode Defaults]
         end
 
-        J --> D_delegate[Delegate Subtask via 'new_task' Tool]
-        D_delegate --> S[Specialized Mode Executes Atomic Subtask]
+        J --> D_delegate[Delegate Subtask via 'new_task' Tool];
+        D_delegate --> S[Specialized Mode Executes Atomic Subtask];
 
         %% --- Safety Check Loop START ---
-        S --> S_check{Risky Tool Use\nRequires Check?}
-        S_check -- Yes --> S_ask["Subtask uses 'ask_followup_question'\n(Sends Question to Boomerang)"]
-        S_ask --> E_q["Boomerang: Evaluate Safety Question\n(Consults User/Memory if needed)"]
-        E_q --> S_confirm["Boomerang Sends\nConfirmation/Denial\n(Resumes/Directs Subtask)"]
+        S --> S_check{Risky Tool Use\nRequires Check?};
+        S_check -- Yes --> S_ask["Subtask uses 'ask_followup_question'\n(Sends Question to Boomerang)"];
+        S_ask --> E_q["Boomerang: Evaluate Safety Question\n(Consults User/Memory if needed)"];
+        E_q --> S_confirm["Boomerang Sends\nConfirmation/Denial\n(Resumes/Directs Subtask)"];
         S_confirm --> S 
         %% --- Safety Check Loop END ---
 
-        S_check -- No --> S_comp["Subtask Signals Completion ('attempt_completion')"] 
+        S_check -- No --> S_comp["Subtask Signals Completion ('attempt_completion')"];
 
-        S_comp --> S_res["Subtask Provides Result Summary (Success/Failure - may include Env/Idempotency notes)"] 
-        S_res --> E[Boomerang: Monitor & Evaluate Subtask Result]
-        E --> F{"Significant Result | Decision | State Change Requiring Memory Update?"}
-        F -- Yes --> I_delegate[Delegate Atomic Memory Bank Update Task]
-        I_delegate --> I_exec["MemoryKeeper/Tool Updates Relevant File(s)"]
-        I_exec --> E
+        S_comp --> S_res["Subtask Provides Result Summary (Success/Failure - may include Env/Idempotency notes)"];
+        S_res --> E[Boomerang: Monitor & Evaluate Subtask Result];
+        E --> F{"Significant Result | Decision | State Change Requiring Immediate Memory Update?"}; 
+        F -- Yes --> I_delegate[Delegate Atomic Memory Bank Update Task];
+        I_delegate --> I_exec["MemoryKeeper/Tool Updates Relevant File(s)"];
+        I_exec --> E; 
 
-        F -- No --> G{All Subtasks for Current Goal / Phase Completed?}
-        G -- No --> C
-        G -- Yes --> H[Boomerang: Synthesize Results for Completed Goal]
-        H --> I_final_delegate[Delegate Final/Comprehensive Memory Update Task]
-        I_final_delegate --> I_final_exec[MemoryKeeper/Tool Performs Comprehensive Update]
-        I_final_exec --> Z["Goal Complete | Report Synthesis to User | Await Next Major Task"]
+        F -- No --> G{All Subtasks for Current Goal / Phase Completed?};
+        G -- No --> C; 
+        G -- Yes --> H[Boomerang: Synthesize Results for Completed Goal];
+        H --> I_final_delegate[Delegate Final/Comprehensive Memory Update Task]; 
+        I_final_delegate --> I_final_exec[MemoryKeeper/Tool Performs Comprehensive Update];
+        I_final_exec --> Z["Goal Complete | Report Synthesis to User | Await Next Major Task"];
     end
 
     %% Connections to/from Memory Bank Files
-    B --> K1; B --> K2; B --> K3; B --> K4; B --> K5; B --> K6; B --> K_Other;
-    ProjectMemoryBank -- Provides Context --> J1;
+    %% B_delegate implicitly uses ProjectMemoryBank via MemoryKeeper
+    B_exec -- Updates/Reads --> ProjectMemoryBank; 
+    ProjectMemoryBank -- Provides Context (via B_res/MemoryKeeper) --> C; 
+    %% ProjectMemoryBank still provides context for J1 implicitly through Boomerang's state
     I_exec -- Updates --> ProjectMemoryBank;
     I_final_exec -- Updates --> ProjectMemoryBank;
 
-    %% Styling
+    %% Styling (Add B_delegate, B_exec, B_res styles)
     classDef process fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
     classDef decision fill:#fffacd,stroke:#daa520,stroke-width:2px
     classDef memory fill:#ffe4e1,stroke:#cd5c5c,stroke-width:2px
     classDef instruction fill:#f0f8ff,stroke:#4682b4,stroke-width:2px
     classDef subtask fill:#fff8dc,stroke:#b8860b,stroke-width:2px,stroke-dasharray: 5 5
     classDef delegate fill:#e0ffff,stroke:#008b8b,stroke-width:2px
-    classDef safety fill:#fff0f5,stroke:#ff69b4,stroke-width:2px; %% Style for safety check loop
+    classDef safety fill:#fff0f5,stroke:#ff69b4,stroke-width:2px;
+    classDef initial_mem fill:#f5f5dc, stroke:#8b4513, stroke-width:2px; 
 
-    class A,C,D,E,H,Z,B process
+    class A,C,D,E,H,Z process
     class F,G,S_check decision
     class ProjectMemoryBank,K1,K2,K3,K4,K5,K6,K_Other,I_exec,I_final_exec memory
     class J,J1,J2,J3,J4,J4a,J5,J6,J_EnvAware,J_Safety,J_Idem instruction
     class S,S_comp,S_res subtask
     class D_delegate,I_delegate,I_final_delegate delegate
     class S_ask,E_q,S_confirm safety
+    class B_delegate delegate; class B_exec initial_mem; class B_res initial_mem; 
 ```
 ## Workflow Explanation
 
