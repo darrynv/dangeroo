@@ -76,125 +76,45 @@ The following diagram illustrates the updated interaction flow, including the tw
 
 ```mermaid
 flowchart TD
-    subgraph ProjectMemoryBank [Memory Bank - Single Source of Truth]
-        direction LR
-        K1[projectbrief.md]
-        K2[productContext.md]
-        K3[systemPatterns.md]
-        K4[techContext.md]
-        K5[activeContext.md]
-        K6[progress.md]
-        K_Env[.env]
-        K_Logs[logs/]
-        K_Tmpl[templates/]
-        K_Other[...]
-    end
-
-    subgraph BoomerangOrchestration [Boomerang Orchestration Process]
-        direction TB
-        A["Start | Receive User Request"] --> B_delegate[Delegate Initial Memory Review/Setup Task]
-        B_delegate --> B_exec["MemoryKeeper: Read Context / Create Files"]
-        B_exec --> B_res["MemoryKeeper: Return Context / Confirm Setup"]
-        B_res -- Provides Initial Context --> C["Atom-of-Thought Breakdown & Evaluation"]
-
-        C --> D[Select Appropriate Specialized Mode]
-        D --> J[Formulate Subtask Instructions]
-
-        subgraph SubtaskInstructionDetails [Instructions for Delegated Mode]
-            direction TB
-            J1["Context (Initial & Ongoing)"]
-            J2[Clearly Defined Scope]
-            J_EnvAware[Note: Environment Assumptions]
-            J3[Constraint: Only Perform Outlined Work]
-            J_Safety[Constraint: Safety Check before Risky Tools]
-            J_Idem[Note: Strive for Idempotency/Minimal Side Effects]
-            J4[Requirement: Signal Completion via 'attempt_completion']
-            J4a[Requirement: Report Failures via 'attempt_completion' w/ Details]
-            J5["Requirement: Provide Concise Result Summary (Success/Failure)"]
-            J6[Rule: These Instructions Override Mode Defaults]
-        end
-
-        J --> D_delegate[Delegate Subtask via 'new_task' Tool]
-        D_delegate --> S[Specialized Mode Executes Primary Atomic Subtask]
-
-        %% --- Safety Check Loop ---
-        S --> S_check{Risky Tool Use?}
-        S_check -- Yes --> S_ask[Subtask asks Boomerang]
-        S_ask --> E_q[Boomerang Evaluates Safety]
-        E_q --> S_confirm[Boomerang Confirms/Denies]
-        S_confirm --> S
-        %% --- Safety Check Loop END ---
-
-        S_check -- No --> S_comp["Subtask Signals Completion ('attempt_completion')"]
-
-        S_comp --> S_res["Subtask Provides Concise Result Summary (Success/Failure)"]
-        S_res --> E[Boomerang: Monitor & Analyze Concise Result]
-
-        %% --- Conditional Logging START ---
-        E --> E_checkEnv[Delegate: Read DEBUG_MODE from K_Env]
-        E_checkEnv --> E_envRes[MemoryKeeper Returns DEBUG_MODE Status]
-        E_envRes --> E_debugDecision{DEBUG_MODE == TRUE?}
-
-        E_debugDecision -- Yes --> L_delegate_report["Delegate Reporting Task\n(to Original Mode)"]
-        L_delegate_report --> L_report_exec["Original Mode: Fill Template\n(Reads K_Tmpl, uses task context)"]
-        L_report_exec --> L_report_res["Original Mode: Return Filled Template (JSON)"]
-
-        L_report_res -- Provides Filled Template --> L_delegate_log["Delegate Logging Task\n(to RooLogger)"]
-        L_delegate_log --> L_exec["RooLogger: Append JSON to Log File (in K_Logs)"]
-        L_exec --> L_res["RooLogger: Confirm Log Append"]
-        L_res --> F 
-
-        E_debugDecision -- No --> F
-        %% --- Conditional Logging END ---
-
-
-        F{"Significant Result | Decision | State Change Requiring Immediate Core Memory Update?"}
-        F -- Yes --> I_delegate[Delegate Core Memory Update Task]
-        I_delegate --> I_exec["MemoryKeeper Updates Core File(s) (K1-K6)"]
-        I_exec --> G
-
-        F -- No --> G
-
-
-        G{All Subtasks for Current Goal / Phase Completed?}
-        G -- No --> C
-        G -- Yes --> H[Boomerang: Synthesize Results for Completed Goal]
-        H --> I_final_delegate[Delegate Final/Comprehensive Memory Update Task]
-        I_final_delegate --> I_final_exec[MemoryKeeper Performs Comprehensive Update]
-        I_final_exec --> Z["Goal Complete | Report Synthesis to User | Await Next Major Task"]
-    end
-
-    %% --- Connections ---
-    B_exec -- Updates/Reads --> ProjectMemoryBank
-    L_report_exec -- Reads --> K_Tmpl
-    L_exec -- Writes --> K_Logs
-    I_exec -- Updates --> ProjectMemoryBank
-    I_final_exec -- Updates --> ProjectMemoryBank
-
-
-    %% --- Styling ---
-    classDef process fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
-    classDef decision fill:#fffacd,stroke:#daa520,stroke-width:2px
-    classDef memory fill:#ffe4e1,stroke:#cd5c5c,stroke-width:2px
-    classDef instruction fill:#f0f8ff,stroke:#4682b4,stroke-width:2px
-    classDef subtask fill:#fff8dc,stroke:#b8860b,stroke-width:2px,stroke-dasharray:5 5
-    classDef delegate fill:#e0ffff,stroke:#008b8b,stroke-width:2px
-    classDef safety fill:#fff0f5,stroke:#ff69b4,stroke-width:2px
-    classDef initial_mem fill:#f5f5dc,stroke:#8b4513,stroke-width:2px
-    classDef logging fill:#fafad2,stroke:#b0e0e6,stroke-width:2px
-    classDef report fill:#e6e6fa,stroke:#9370db,stroke-width:2px
-
-    class A,C,D,E,H,Z process
-    class F,G,S_check,E_debugDecision decision
-    class ProjectMemoryBank,K1,K2,K3,K4,K5,K6,K_Env,K_Logs,K_Tmpl,K_Other,I_exec,I_final_exec memory
-    class J,J1,J2,J3,J4,J4a,J5,J6,J_EnvAware,J_Safety,J_Idem instruction
-    class S,S_comp,S_res subtask
-    class D_delegate,I_delegate,I_final_delegate,B_delegate,L_delegate_report,L_delegate_log,E_checkEnv delegate
-    class S_ask,E_q,S_confirm safety
-    class B_exec,B_res initial_mem
-    class L_report_exec,L_report_res report
-    class L_exec,L_res logging
-    class E_envRes initial_mem
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px,color:#333
+    classDef focus fill:#d4e6f1,stroke:#2874a6,stroke-width:2px,color:#000
+    
+    Start([Start Dangeroo Mode]) --> InitLoad{Initial Context Loading}
+    InitLoad -->|Delegate to MemoryKeeper| LoadState[Load State & Configuration]
+    LoadState --> CheckDebug{Check DEBUG_MODE}
+    
+    CheckDebug --> TaskDecomp[Task Decomposition]
+    TaskDecomp -->|Apply atom-of-thought| EvalBreakdown[Evaluate Breakdown for Minimality]
+    EvalBreakdown --> ModeSelection[Mode Selection]
+    
+    ModeSelection -->|Choose specialized mode| InstForm[Instruction Formulation]
+    InstForm -->|Detailed context-rich instructions| AdvPrompting[Apply Advanced Prompting]
+    AdvPrompting --> Delegate[Delegate Primary Task]
+    
+    Delegate -->|Wait for completion| EvalResults{Evaluate Results}
+    EvalResults -->|Success| CheckDebugLogging{DEBUG_MODE Enabled?}
+    EvalResults -->|Failure| CheckDebugLogging
+    
+    CheckDebugLogging -->|Yes| SecondaryReporting[Secondary Reporting Task]
+    CheckDebugLogging -->|No| StateManagement
+    
+    SecondaryReporting -->|Delegate to original mode| FillTemplate[Fill JSON Template]
+    FillTemplate -->|Provide structured data| LoggingTask[Logging Task]
+    LoggingTask -->|Delegate to roo-logger| Persistence[Persist Log Data]
+    Persistence --> StateManagement
+    
+    StateManagement{State Management & Workflow Control} -->|Next task| ModeSelection
+    StateManagement -->|Request info| AskUser[Ask User]
+    StateManagement -->|Update memory| UpdateMemory[Update Core Memory]
+    StateManagement -->|Goal complete| Synthesis[Synthesize Results]
+    
+    AskUser --> ModeSelection
+    UpdateMemory -->|Delegate to MemoryKeeper| ModeSelection
+    
+    Synthesis --> FinalMemory[Final Memory Updates]
+    FinalMemory --> End([End Dangeroo Mode])
+    
+    class TaskDecomp,ModeSelection,InstForm,EvalResults,StateManagement focus
 ```
 
 ## Workflow Explanation (Updated)
@@ -235,7 +155,7 @@ Dangeroo Mode employs several techniques to improve the quality and reliability 
 -   **Chain-of-Thought (CoT):** Dangeroo Mode may explicitly request specialized modes to include concise reasoning steps in their *concise* result summary or, more likely, request it as part of the *detailed reporting task* (when `DEBUG_MODE` is on). This aids transparency and debugging. CoT results may be stored in the memory bank or the detailed logs.
     ```mermaid
     flowchart LR
-        A["Complex Task"] --> B["Dangeroo Mode Requests CoT\n(in primary or reporting task)"]
+        A["Complex Task"] --> B["Dangeroo Mode Requests CoT (in primary or reporting task)"]
         B --> C["Specialized Mode Execution"]
         C --> D["Transparent Result/Report"]
 
@@ -297,11 +217,32 @@ Dangeroo Mode employs several techniques to improve the quality and reliability 
 
 ## Explicit Guardrails & Failure Handling
 
-Remains the same: Explicit instructions for Failure Reporting, Tool Safety Check, Environment Awareness, and Idempotency/Side Effects ensure predictable and robust behavior from specialized modes.
+To address potentially critical issues arising from implicit assumptions, specific instructions have been added to the specialized modes:
+
+* Failure Reporting: Modes are explicitly instructed MUST use attempt_completion to report failure if they encounter an insurmountable error during execution. They must provide clear details about the failure (error messages, logical conflicts, etc.) and any partial results. This prevents modes from getting stuck, deviating, or silently failing, ensuring Dangeroo Mode is always informed.
+
+* Tool Safety Check: Modes with access to potentially destructive or resource-intensive tools (execute_command, browser_action) - specifically debug, tester, devops, security - MUST pause, describe the intended risky action, and request confirmation from Dangeroo Mode using ask_followup_question before proceeding. This acts as a critical safety layer, keeping the orchestrator in control of potentially harmful operations.
+
+* Environment Awareness: Modes that depend on a specific environment (code, debug, tester, devops, security) are instructed to assume the environment matches techContext.md or task specifics. If required tools, dependencies, or services are missing and block execution, they MUST report this as a failure requirement, rather than assuming they exist or attempting complex setup.
+
+* Idempotency & Side Effects: Modes generating code, scripts, or configurations (code, devops, tester) are encouraged to strive for idempotency (safe to run multiple times) and minimize side effects. They should flag potential risks in their summaries.
+
+These explicit instructions act as crucial guardrails, making the system's behavior more predictable, robust, and safe by forcing modes to handle common failure points and risks in a structured way that feeds back into the orchestration layer.
 
 ## Usage
 
-Remains the same: Interact with Dangeroo Mode, provide high-level goals.
+Interaction typically happens with Dangeroo Mode. The user provides a high-level goal or task (e.g., "Implement user authentication using JWT", "Refactor the database access layer", "Add unit tests for the payment module"). Dangeroo Mode then handles the entire process of breaking down the task, orchestrating the specialized modes, managing context, and reporting the final outcome. The user may be consulted via ask_followup_question if clarification is needed or if a safety check requires confirmation.
+
+.roomodes.initialise is a prototype prompt with the intended purpose of using this with your LLM model of choice to 'intialise' context for the RooCode system. It is not a complete prompt and should be used as a starting point for your own implementation. The prompt is designed to be used with the RooCode system and should be modified to suit your specific needs.
+
+I have been testing using :
+
+```prompt
+Create a whimsical, Ghibli-inspired LLM-powered web chat application that exudes the gentle, enchanting aesthetic of Studio Ghibli films. Keep the interface minimalist yet visually captivating, with pastel color schemes, subtle animations, and charming background illustrations. Implement an interactive chat window that seamlessly displays user messages alongside an AI assistant avatar styled as a friendly forest spirit. Infuse delight at every turn with playful hover effects, smooth transitions, and a cozy branding feel. Ensure the user experience is intuitive and magical, inviting visitors to explore an immersive environment that combines simple functionality with the timeless wonder of Ghibli storytelling.
+```
+<p align="center">
+  <img src=".roo-docs\run-3-results.png" alt="DangerRoo - Boomerang Mode" width="500"/>
+</p>
 
 ## Structured Logging Templates
 
@@ -313,4 +254,4 @@ The `.roomodes.initialise` prompt mentioned previously serves as a conceptual st
 
 ## Conclusion
 
-The Dangeroo AI system, orchestrated by Dangeroo Mode, represents a structured and robust approach to leveraging LLMs for software engineering. By combining specialization, atomicity, persistent memory, advanced prompting, explicit guardrails, and conditional structured logging, it aims to provide reliable, traceable, observable, and high-quality assistance across the development lifecycle.
+The Dangeroo AI system, orchestrated by Boomerang Mode in Roo-Code, represents a structured and robust approach to leveraging LLMs for software engineering. By combining specialization, atomicity, persistent memory, advanced prompting, explicit guardrails, and conditional structured logging, it aims to provide reliable, traceable, observable, and high-quality assistance across the development lifecycle.
