@@ -10,6 +10,7 @@ flowchart TD
         K_Env[.env]
         K_Logs[logs/]
         K_Tmpl[templates/]
+        K_BP[bestPractices.md]
         K_Other[...]
     end
 
@@ -28,12 +29,13 @@ flowchart TD
             J1["Context (Initial & Ongoing)"]
             J2[Clearly Defined Scope]
             J_EnvAware[Note: Environment Assumptions]
+            J_BPRef[Note: Adhere to K_BP & Flag Conflicts] 
             J3[Constraint: Only Perform Outlined Work]
             J_Safety[Constraint: Safety Check before Risky Tools]
             J_Idem[Note: Strive for Idempotency/Minimal Side Effects]
             J4[Requirement: Signal Completion via 'attempt_completion']
             J4a[Requirement: Report Failures via 'attempt_completion' w/ Details]
-            J5["Requirement: Provide Concise Result Summary (Success/Failure)"]
+            J5["Requirement: Provide Concise Result Summary (Success/Failure + Conflicts?)"] 
             J6[Rule: These Instructions Override Mode Defaults]
         end
 
@@ -50,11 +52,32 @@ flowchart TD
 
         S_check -- No --> S_comp["Subtask Signals Completion ('attempt_completion')"]
 
-        S_comp --> S_res["Subtask Provides Concise Result Summary (Success/Failure)"]
-        S_res --> E[Boomerang: Monitor & Analyze Concise Result]
+        S_comp --> S_res["Subtask Provides Concise Result Summary\n(Success/Failure + Conflict Flag?)"]
+        S_res --> E["Boomerang: Monitor & Analyze Concise Result (Inc. Conflict Flag)"]
+
+        %% --- Conflict Review / Refactor START ---
+        E --> E_conflict_check{Conflict Flagged & Review Warranted?}
+
+        E_conflict_check -- Yes --> R_delegate_review["Delegate Review Task\n(to Architect/Code)"]
+        R_delegate_review --> R_review_exec["Mode Performs Review\n(Compares Conflict, Recommends Action)"]
+        R_review_exec --> R_review_res["Mode Returns Review & Recommendation"]
+        R_review_res --> R_eval_review[Boomerang Evaluates Recommendation]
+        R_eval_review --> R_refactor_decision{"Accept Recommendation?\n(e.g., Refactor, Log Debt, Ignore)"}
+
+        R_refactor_decision -- "Refactor" --> R_delegate_refactor["Delegate Refactoring Task\n(to Code)"]
+        R_delegate_refactor --> R_refactor_exec["Code Mode Performs Refactoring"]
+        R_refactor_exec --> R_refactor_res["Code Mode Returns Refactor Result"]
+        R_refactor_res --> E_checkEnv
+
+        R_refactor_decision -- "Log Tech Debt" --> I_delegate_debt["Delegate Memory Update\n(Log Debt in progress.md)"]
+        I_delegate_debt --> I_exec_debt["MemoryKeeper Logs Tech Debt"]
+        I_exec_debt --> E_checkEnv
+        R_refactor_decision -- "Ignore/Maintain" --> E_checkEnv
+        E_conflict_check -- No --> E_checkEnv
+        %% --- Conflict Review / Refactor END ---
 
         %% --- Conditional Logging START ---
-        E --> E_checkEnv[Delegate: Read DEBUG_MODE from K_Env]
+        E_checkEnv[Delegate: Read DEBUG_MODE from K_Env]
         E_checkEnv --> E_envRes[MemoryKeeper Returns DEBUG_MODE Status]
         E_envRes --> E_debugDecision{DEBUG_MODE == TRUE?}
 
@@ -65,7 +88,7 @@ flowchart TD
         L_report_res -- Provides Filled Template --> L_delegate_log["Delegate Logging Task\n(to RooLogger)"]
         L_delegate_log --> L_exec["RooLogger: Append JSON to Log File (in K_Logs)"]
         L_exec --> L_res["RooLogger: Confirm Log Append"]
-        L_res --> F 
+        L_res --> F
 
         E_debugDecision -- No --> F
         %% --- Conditional Logging END ---
@@ -78,7 +101,6 @@ flowchart TD
 
         F -- No --> G
 
-
         G{All Subtasks for Current Goal / Phase Completed?}
         G -- No --> C
         G -- Yes --> H[Boomerang: Synthesize Results for Completed Goal]
@@ -89,8 +111,11 @@ flowchart TD
 
     %% --- Connections ---
     B_exec -- Updates/Reads --> ProjectMemoryBank
+    %% Mode executing primary task (S) implicitly reads K_BP via context J_BPRef
+    R_review_exec -- Reads --> K_BP
     L_report_exec -- Reads --> K_Tmpl
     L_exec -- Writes --> K_Logs
+    I_exec_debt -- Writes --> K6
     I_exec -- Updates --> ProjectMemoryBank
     I_final_exec -- Updates --> ProjectMemoryBank
 
@@ -106,15 +131,18 @@ flowchart TD
     classDef initial_mem fill:#f5f5dc,stroke:#8b4513,stroke-width:2px
     classDef logging fill:#fafad2,stroke:#b0e0e6,stroke-width:2px
     classDef report fill:#e6e6fa,stroke:#9370db,stroke-width:2px
+    classDef review fill:#f0e68c,stroke:#b8860b,stroke-width:2px
 
-    class A,C,D,E,H,Z process
-    class F,G,S_check,E_debugDecision decision
-    class ProjectMemoryBank,K1,K2,K3,K4,K5,K6,K_Env,K_Logs,K_Tmpl,K_Other,I_exec,I_final_exec memory
-    class J,J1,J2,J3,J4,J4a,J5,J6,J_EnvAware,J_Safety,J_Idem instruction
+    class A,C,D,E,H,Z,R_eval_review process
+    class F,G,S_check,E_debugDecision,E_conflict_check,R_refactor_decision decision
+    class ProjectMemoryBank,K1,K2,K3,K4,K5,K6,K_Env,K_Logs,K_Tmpl,K_BP,K_Other,I_exec,I_final_exec,I_exec_debt memory
+    class J,J1,J2,J3,J4,J4a,J5,J6,J_EnvAware,J_Safety,J_Idem,J_BPRef instruction
     class S,S_comp,S_res subtask
-    class D_delegate,I_delegate,I_final_delegate,B_delegate,L_delegate_report,L_delegate_log,E_checkEnv delegate
+    class D_delegate,I_delegate,I_final_delegate,B_delegate,L_delegate_report,L_delegate_log,E_checkEnv,R_delegate_review,R_delegate_refactor,I_delegate_debt delegate
     class S_ask,E_q,S_confirm safety
     class B_exec,B_res initial_mem
     class L_report_exec,L_report_res report
     class L_exec,L_res logging
     class E_envRes initial_mem
+    class R_review_exec,R_review_res review
+    class R_refactor_exec,R_refactor_res subtask
