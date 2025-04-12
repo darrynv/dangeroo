@@ -471,7 +471,6 @@ Dangeroo Mode employs several techniques to improve the quality and reliability 
     ```
 **Important Note:** Specialized modes focus on their primary task and concise reporting (including conflict flags). They only perform detailed template filling or extensive CoT when explicitly given a secondary reporting task by Dangeroo Mode.
 
-## Explicit Guardrails & Failure Handling
 ## Explicit Guardrails & Failure Handling (Updated)
 
 To address potentially critical issues arising from implicit assumptions, specific instructions have been added to the specialized modes:
