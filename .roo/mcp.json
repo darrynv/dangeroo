@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "chroma_manager": {
+      "command": "python",
+      "args": ["micro-services/chroma_mcp_server/chroma_mcp_server.py"],
+      "cwd": "/path/to/project/root", // Optional: set working directory if needed
+      "env": {
+        "CHROMA_HOST": "chromadb", // Or "localhost" if running locally
+        "CHROMA_PORT": "8000"
+      },
+      "disabled": false
+    }
+  }
+}
