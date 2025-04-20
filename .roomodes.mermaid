@@ -1,148 +1,109 @@
 flowchart TD
-    subgraph ProjectMemoryBank [Memory Bank - Single Source of Truth]
-        direction LR
-        K1[projectbrief.md]
-        K2[productContext.md]
-        K3[systemPatterns.md]
-        K4[techContext.md]
-        K5[activeContext.md]
-        K6[progress.md]
-        K_Env[.env]
-        K_Logs[logs/]
-        K_Tmpl[templates/]
-        K_BP[bestPractices.md]
-        K_Other[...]
-    end
-
-    subgraph BoomerangOrchestration [Boomerang Orchestration Process]
-        direction TB
-        A["Start | Receive User Request"] --> B_delegate[Delegate Initial Memory Review/Setup Task]
-        B_delegate --> B_exec["MemoryKeeper: Read Context / Create Files"]
-        B_exec --> B_res["MemoryKeeper: Return Context / Confirm Setup"]
-        B_res -- Provides Initial Context --> C["Atom-of-Thought Breakdown & Evaluation"]
-
-        C --> D[Select Appropriate Specialized Mode]
-        D --> J[Formulate Subtask Instructions]
-
-        subgraph SubtaskInstructionDetails [Instructions for Delegated Mode]
-            direction TB
-            J1["Context (Initial & Ongoing)"]
-            J2[Clearly Defined Scope]
-            J_EnvAware[Note: Environment Assumptions]
-            J_BPRef[Note: Adhere to K_BP & Flag Conflicts] 
-            J3[Constraint: Only Perform Outlined Work]
-            J_Safety[Constraint: Safety Check before Risky Tools]
-            J_Idem[Note: Strive for Idempotency/Minimal Side Effects]
-            J4[Requirement: Signal Completion via 'attempt_completion']
-            J4a[Requirement: Report Failures via 'attempt_completion' w/ Details]
-            J5["Requirement: Provide Concise Result Summary (Success/Failure + Conflicts?)"] 
-            J6[Rule: These Instructions Override Mode Defaults]
+    subgraph UserInteraction
+        Start([User Query]) --> B1[Boomerang: Deconstruct & ID Ambiguities]
+        B1 --> B2{Ambiguity Found?}
+        B2 -- Yes --> B3[Boomerang: Attempt Internal Resolution]
+        B3 --> B4_DelMem[Delegate Mem0 Search via Mem0Interface]
+        B3 --> B5_DelDoc[Delegate Context7 Docs via Context7Interface]
+        B3 --> B6_DelLSP["Delegate LSP Check (e.g., hover) via Code/Debug"]
+        B3 --> B7_DelFile[Delegate File Read via FileSystemInterface]
+        
+        subgraph Interfaces [Interface Modes]
+            direction LR
+            MemIF[Mem0Interface]
+            CtxIF[Context7Interface]
+            FSIf[FileSystemInterface]
+            %% LSP is accessed directly by Code/Debug, not via interface mode here
         end
 
-        J --> D_delegate[Delegate Subtask via 'new_task' Tool]
-        D_delegate --> S[Specialized Mode Executes Primary Atomic Subtask]
+        B4_DelMem --> MemIF -- Raw Results --> B8[Boomerang: Collect Context]
+        B5_DelDoc --> CtxIF -- Raw Results --> B8
+        B6_DelLSP -- Delegate Task --> ExecLSPCheck[(Code/Debug Mode Executes LSP Check)] -- Raw Results --> B8
+        B7_DelFile --> FSIf -- Raw Content --> B8
+        
+        B2 -- No --> B8
 
-        %% --- Safety Check Loop ---
-        S --> S_check{Risky Tool Use?}
-        S_check -- Yes --> S_ask[Subtask asks Boomerang]
-        S_ask --> E_q[Boomerang Evaluates Safety]
-        E_q --> S_confirm[Boomerang Confirms/Denies]
-        S_confirm --> S
-        %% --- Safety Check Loop END ---
-
-        S_check -- No --> S_comp["Subtask Signals Completion ('attempt_completion')"]
-
-        S_comp --> S_res["Subtask Provides Concise Result Summary\n(Success/Failure + Conflict Flag?)"]
-        S_res --> E["Boomerang: Monitor & Analyze Concise Result (Inc. Conflict Flag)"]
-
-        %% --- Conflict Review / Refactor START ---
-        E --> E_conflict_check{Conflict Flagged & Review Warranted?}
-
-        E_conflict_check -- Yes --> R_delegate_review["Delegate Review Task\n(to Architect/Code)"]
-        R_delegate_review --> R_review_exec["Mode Performs Review\n(Compares Conflict, Recommends Action)"]
-        R_review_exec --> R_review_res["Mode Returns Review & Recommendation"]
-        R_review_res --> R_eval_review[Boomerang Evaluates Recommendation]
-        R_eval_review --> R_refactor_decision{"Accept Recommendation?\n(e.g., Refactor, Log Debt, Ignore)"}
-
-        R_refactor_decision -- "Refactor" --> R_delegate_refactor["Delegate Refactoring Task\n(to Code)"]
-        R_delegate_refactor --> R_refactor_exec["Code Mode Performs Refactoring"]
-        R_refactor_exec --> R_refactor_res["Code Mode Returns Refactor Result"]
-        R_refactor_res --> E_checkEnv
-
-        R_refactor_decision -- "Log Tech Debt" --> I_delegate_debt["Delegate Memory Update\n(Log Debt in progress.md)"]
-        I_delegate_debt --> I_exec_debt["MemoryKeeper Logs Tech Debt"]
-        I_exec_debt --> E_checkEnv
-        R_refactor_decision -- "Ignore/Maintain" --> E_checkEnv
-        E_conflict_check -- No --> E_checkEnv
-        %% --- Conflict Review / Refactor END ---
-
-        %% --- Conditional Logging START ---
-        E_checkEnv[Delegate: Read DEBUG_MODE from K_Env]
-        E_checkEnv --> E_envRes[MemoryKeeper Returns DEBUG_MODE Status]
-        E_envRes --> E_debugDecision{DEBUG_MODE == TRUE?}
-
-        E_debugDecision -- Yes --> L_delegate_report["Delegate Reporting Task\n(to Original Mode)"]
-        L_delegate_report --> L_report_exec["Original Mode: Fill Template\n(Reads K_Tmpl, uses task context)"]
-        L_report_exec --> L_report_res["Original Mode: Return Filled Template (JSON)"]
-
-        L_report_res -- Provides Filled Template --> L_delegate_log["Delegate Logging Task\n(to RooLogger)"]
-        L_delegate_log --> L_exec["RooLogger: Append JSON to Log File (in K_Logs)"]
-        L_exec --> L_res["RooLogger: Confirm Log Append"]
-        L_res --> F
-
-        E_debugDecision -- No --> F
-        %% --- Conditional Logging END ---
-
-
-        F{"Significant Result | Decision | State Change Requiring Immediate Core Memory Update?"}
-        F -- Yes --> I_delegate[Delegate Core Memory Update Task]
-        I_delegate --> I_exec["MemoryKeeper Updates Core File(s) (K1-K6)"]
-        I_exec --> G
-
-        F -- No --> G
-
-        G{All Subtasks for Current Goal / Phase Completed?}
-        G -- No --> C
-        G -- Yes --> H[Boomerang: Synthesize Results for Completed Goal]
-        H --> I_final_delegate[Delegate Final/Comprehensive Memory Update Task]
-        I_final_delegate --> I_final_exec[MemoryKeeper Performs Comprehensive Update]
-        I_final_exec --> Z["Goal Complete | Report Synthesis to User | Await Next Major Task"]
+        B8 --> B9{Ambiguity Persists?}
+        B9 -- Yes --> AskUser[Boomerang: Ask User Clarification] --> Start 
+        B9 -- No --> B10[Boomerang: Synthesize Context & Define Subtasks]
     end
 
-    %% --- Connections ---
-    B_exec -- Updates/Reads --> ProjectMemoryBank
-    %% Mode executing primary task (S) implicitly reads K_BP via context J_BPRef
-    R_review_exec -- Reads --> K_BP
-    L_report_exec -- Reads --> K_Tmpl
-    L_exec -- Writes --> K_Logs
-    I_exec_debt -- Writes --> K6
-    I_exec -- Updates --> ProjectMemoryBank
-    I_final_exec -- Updates --> ProjectMemoryBank
+    subgraph PlanningAndDelegation
+        B10 --> B11{Planning Needed?}
+        B11 -- Yes --> B12_DelPlan["Delegate Planning Task (e.g., to Architect)"]
+        B12_DelPlan --> ExecPlan[(Specialized Mode Executes Planning Task)] -- Planning Result --> B13[Boomerang: Analyze Plan]
+        B11 -- No --> B13
+        
+        B13 --> B14{User Confirmation on Plan?}
+        B14 -- If Needed --> AskUserPlan[Boomerang: Ask User Plan Confirmation] --> B13 
+        B14 -- Confirmed / Not Needed --> B15[Boomerang: Select Mode & Delegate EXECUTION Subtask w/ Context]
+    end
 
+    subgraph SubtaskExecutionLoop
+        B15 --> ExecTaskStart{Execute Subtask}
+        
+        subgraph ExecutionModes [Specialized Execution Modes]
+            direction LR
+            CodeMode["Code (Uses LSP)"]
+            DebugMode["Debug (Uses LSP)"]
+            ArchitectMode[Architect]
+            TesterMode[Tester]
+            ReqMode[Requirements]
+            DevOpsMode[DevOps]
+            WriterMode[Writer]
+            SecurityMode[Security]
+            UIUXMode[UI/UX]
+            OtherModes[...]
+        end
+
+        subgraph LSPInteraction ["LSP Server (via BifrostMCP)"]
+             LSP[(LSP)]
+        end
+
+        ExecTaskStart -- Delegate Task --> ExecutionModes 
+        
+        %% Show LSP Interaction for relevant modes
+        CodeMode -- LSP Calls (diagnostics, refs, hover) --> LSP
+        DebugMode -- LSP Calls (diagnostics, refs, hover, def) --> LSP
+        LSP -- LSP Results --> CodeMode
+        LSP -- LSP Results --> DebugMode
+        
+        ExecutionModes -- attempt_completion (Result: status, outcome, deliverables, content_for_mem0, metadata_for_mem0, conflict_flag?) --> B16[Boomerang: Analyze Subtask Result]
+
+        B16 --> B17{Success?}
+        B17 -- No --> HandleFailure["Boomerang: Handle Failure (Retry? Ask User? Abort?)"] --> B21 
+        B18 -- Yes --> B19_DelStore[Delegate Storage Task via Mem0Interface w/ Advanced Meta]
+        B19_DelStore --> MemIF -- Storage Confirmation --> B20[Boomerang: Acknowledge Storage]
+        B18 -- No --> B20
+
+        B20 --> B21{More Subtasks Needed?}
+        B21 -- Yes --> B10 
+        B21 -- No --> B22[Boomerang: Synthesize Final Result]
+    end
+
+    subgraph Finalization
+       B22 --> B23{Final Comprehensive Memory Update?}
+       B23 -- Yes --> B24_DelFinalStore[Delegate Final Summary Storage via Mem0Interface]
+       B24_DelFinalStore --> MemIF -- Storage Confirmation --> B25[Boomerang: Prepare Final Report]
+       B23 -- No --> B25
+
+       B25 --> End([Report Result/Reflection to User])
+    end
 
     %% --- Styling ---
-    classDef process fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
+    classDef orchestrator fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
     classDef decision fill:#fffacd,stroke:#daa520,stroke-width:2px
-    classDef memory fill:#ffe4e1,stroke:#cd5c5c,stroke-width:2px
-    classDef instruction fill:#f0f8ff,stroke:#4682b4,stroke-width:2px
-    classDef subtask fill:#fff8dc,stroke:#b8860b,stroke-width:2px,stroke-dasharray:5 5
-    classDef delegate fill:#e0ffff,stroke:#008b8b,stroke-width:2px
-    classDef safety fill:#fff0f5,stroke:#ff69b4,stroke-width:2px
-    classDef initial_mem fill:#f5f5dc,stroke:#8b4513,stroke-width:2px
-    classDef logging fill:#fafad2,stroke:#b0e0e6,stroke-width:2px
-    classDef report fill:#e6e6fa,stroke:#9370db,stroke-width:2px
-    classDef review fill:#f0e68c,stroke:#b8860b,stroke-width:2px
+    classDef interface fill:#e0ffff,stroke:#008b8b,stroke-width:2px
+    classDef execution fill:#fff0f5,stroke:#cd5c5c,stroke-width:2px
+    classDef lsp fill:#f0f8ff,stroke:#4682b4,stroke-width:2px
+    classDef delegate fill:#fafad2,stroke:#b8860b,stroke-width:1px,stroke-dasharray: 5 5
+    classDef startend fill:#d3d3d3,stroke:#000000,stroke-width:2px
 
-    class A,C,D,E,H,Z,R_eval_review process
-    class F,G,S_check,E_debugDecision,E_conflict_check,R_refactor_decision decision
-    class ProjectMemoryBank,K1,K2,K3,K4,K5,K6,K_Env,K_Logs,K_Tmpl,K_BP,K_Other,I_exec,I_final_exec,I_exec_debt memory
-    class J,J1,J2,J3,J4,J4a,J5,J6,J_EnvAware,J_Safety,J_Idem,J_BPRef instruction
-    class S,S_comp,S_res subtask
-    class D_delegate,I_delegate,I_final_delegate,B_delegate,L_delegate_report,L_delegate_log,E_checkEnv,R_delegate_review,R_delegate_refactor,I_delegate_debt delegate
-    class S_ask,E_q,S_confirm safety
-    class B_exec,B_res initial_mem
-    class L_report_exec,L_report_res report
-    class L_exec,L_res logging
-    class E_envRes initial_mem
-    class R_review_exec,R_review_res review
-    class R_refactor_exec,R_refactor_res subtask
+    class B1,B3,B8,B10,B13,B16,B20,B21,B22,B25,HandleFailure orchestrator
+    class B2,B9,B11,B14,B17,B18,B21,B23 decision
+    class MemIF,CtxIF,FSIf interface
+    class ExecutionModes,CodeMode,DebugMode,ArchitectMode,TesterMode,ReqMode,DevOpsMode,WriterMode,SecurityMode,UIUXMode,OtherModes,ExecPlan,ExecLSPCheck execution
+    class LSPInteraction,LSP lsp
+    class B4_DelMem,B5_DelDoc,B6_DelLSP,B7_DelFile,B12_DelPlan,B15,B19_DelStore,B24_DelFinalStore delegate
+    class Start,End startend
+    class AskUser,AskUserPlan execution
