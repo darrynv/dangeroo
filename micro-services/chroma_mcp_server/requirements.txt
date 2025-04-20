@@ -1,9 +1,0 @@
-chromadb
-sentence-transformers
-transformers
-tqdm
-python-dotenv
-tree-sitter
-tree-sitter-python
-tree-sitter-go
-tree-sitter-javascript

@@ -530,3 +530,7 @@ Generic LLMs lack deep familiarity with a specific project's unique coding style
 *   **Limited Internal Retry:** Suggested allowing modes a single internal retry for simple, verifiable errors (implementation detail within mode instructions).
 *   **README & Flowchart:** Documentation updated to reflect these significant process enhancements (Flowchart requires manual update with provided code).
 
+When you want to update backend-services, run the following command in the root directory of the project:
+
+```bash 
+git submodule update --remote server
