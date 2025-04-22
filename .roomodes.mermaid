@@ -1,5 +1,5 @@
 flowchart TD
-    subgraph UserInteraction
+    subgraph UserInteraction [Phase 1: Understanding & Context Gathering]
         Start([User Query]) --> B1[Boomerang: Deconstruct & ID Ambiguities]
         B1 --> B2{Ambiguity Found?}
         B2 -- Yes --> B3[Boomerang: Attempt Internal Resolution]
@@ -7,7 +7,7 @@ flowchart TD
         B3 --> B5_DelDoc[Delegate Context7 Docs via Context7Interface]
         B3 --> B6_DelLSP["Delegate LSP Check (e.g., hover) via Code/Debug"]
         B3 --> B7_DelFile[Delegate File Read via FileSystemInterface]
-        
+
         subgraph Interfaces [Interface Modes]
             direction LR
             MemIF[Mem0Interface]
@@ -20,29 +20,29 @@ flowchart TD
         B5_DelDoc --> CtxIF -- Raw Results --> B8
         B6_DelLSP -- Delegate Task --> ExecLSPCheck[(Code/Debug Mode Executes LSP Check)] -- Raw Results --> B8
         B7_DelFile --> FSIf -- Raw Content --> B8
-        
+
         B2 -- No --> B8
 
         B8 --> B9{Ambiguity Persists?}
-        B9 -- Yes --> AskUser[Boomerang: Ask User Clarification] --> Start 
+        B9 -- Yes --> AskUser[Boomerang: Ask User Clarification] --> Start
         B9 -- No --> B10[Boomerang: Synthesize Context & Define Subtasks]
     end
 
-    subgraph PlanningAndDelegation
+    subgraph PlanningAndDelegation [Phase 2: Planning & Execution Delegation]
         B10 --> B11{Planning Needed?}
         B11 -- Yes --> B12_DelPlan["Delegate Planning Task (e.g., to Architect)"]
         B12_DelPlan --> ExecPlan[(Specialized Mode Executes Planning Task)] -- Planning Result --> B13[Boomerang: Analyze Plan]
         B11 -- No --> B13
-        
+
         B13 --> B14{User Confirmation on Plan?}
-        B14 -- If Needed --> AskUserPlan[Boomerang: Ask User Plan Confirmation] --> B13 
+        B14 -- If Needed --> AskUserPlan[Boomerang: Ask User Plan Confirmation] --> B13
         B14 -- Confirmed / Not Needed --> B15[Boomerang: Select Mode & Delegate EXECUTION Subtask w/ Context]
     end
 
-    subgraph SubtaskExecutionLoop
+    subgraph SubtaskExecutionLoop [Phase 3: Result Processing & Iteration]
         B15 --> ExecTaskStart{Execute Subtask}
-        
-        subgraph ExecutionModes [Specialized Execution Modes]
+
+        subgraph ExecutionModes ["Specialized Execution Modes (Internal Safe-Edit Protocol for Code/Debug)"]
             direction LR
             CodeMode["Code (Uses LSP)"]
             DebugMode["Debug (Uses LSP)"]
@@ -60,28 +60,29 @@ flowchart TD
              LSP[(LSP)]
         end
 
-        ExecTaskStart -- Delegate Task --> ExecutionModes 
-        
+        ExecTaskStart -- Delegate Task --> ExecutionModes
+
         %% Show LSP Interaction for relevant modes
-        CodeMode -- LSP Calls (diagnostics, refs, hover) --> LSP
-        DebugMode -- LSP Calls (diagnostics, refs, hover, def) --> LSP
+        CodeMode -- LSP Calls (Safe-Edit: symbols, usages, def, hover, impl, actions...) --> LSP
+        DebugMode -- LSP Calls (Diagnosis: hover, def, usages... Safe-Fix: see CodeMode) --> LSP
         LSP -- LSP Results --> CodeMode
         LSP -- LSP Results --> DebugMode
-        
-        ExecutionModes -- attempt_completion (Result: status, outcome, deliverables, content_for_mem0, metadata_for_mem0, conflict_flag?) --> B16[Boomerang: Analyze Subtask Result]
+
+        ExecutionModes -- attempt_completion (Result: status, outcome, deliverables, content_for_mem0 w/ LSP summary, metadata_for_mem0, conflict_flag?) --> B16[Boomerang: Analyze Subtask Result]
 
         B16 --> B17{Success?}
-        B17 -- No --> HandleFailure["Boomerang: Handle Failure (Retry? Ask User? Abort?)"] --> B21 
+        B17 -- No --> HandleFailure["Boomerang: Handle Failure (Retry? Ask User? Abort?)"] --> B21
+        B17 -- Yes --> B18{Store Result in Memory?}
         B18 -- Yes --> B19_DelStore[Delegate Storage Task via Mem0Interface w/ Advanced Meta]
         B19_DelStore --> MemIF -- Storage Confirmation --> B20[Boomerang: Acknowledge Storage]
         B18 -- No --> B20
 
         B20 --> B21{More Subtasks Needed?}
-        B21 -- Yes --> B10 
+        B21 -- Yes --> B10
         B21 -- No --> B22[Boomerang: Synthesize Final Result]
     end
 
-    subgraph Finalization
+    subgraph Finalization [Phase 4: Final Synthesis & Reporting]
        B22 --> B23{Final Comprehensive Memory Update?}
        B23 -- Yes --> B24_DelFinalStore[Delegate Final Summary Storage via Mem0Interface]
        B24_DelFinalStore --> MemIF -- Storage Confirmation --> B25[Boomerang: Prepare Final Report]
@@ -99,7 +100,7 @@ flowchart TD
     classDef delegate fill:#fafad2,stroke:#b8860b,stroke-width:1px,stroke-dasharray: 5 5
     classDef startend fill:#d3d3d3,stroke:#000000,stroke-width:2px
 
-    class B1,B3,B8,B10,B13,B16,B20,B21,B22,B25,HandleFailure orchestrator
+    class B1,B3,B8,B10,B13,B16,B20,B22,B25,HandleFailure orchestrator
     class B2,B9,B11,B14,B17,B18,B21,B23 decision
     class MemIF,CtxIF,FSIf interface
     class ExecutionModes,CodeMode,DebugMode,ArchitectMode,TesterMode,ReqMode,DevOpsMode,WriterMode,SecurityMode,UIUXMode,OtherModes,ExecPlan,ExecLSPCheck execution

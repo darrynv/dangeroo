@@ -1,0 +1,13 @@
+{
+  "name": "mem0-test",
+  "version": "1.0.0",
+  "description": "Simple test script for Mem0 MCP server",
+  "main": "test_mem0.js",
+  "scripts": {
+    "test": "node test_mem0.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "uuid": "^9.0.1"
+  }
+}

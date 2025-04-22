@@ -19,6 +19,7 @@ __pycache__/
 .Python
 env/
 venv/
+mem0_env/
 ENV/
 .env
 .venv
@@ -31,6 +32,7 @@ uv.lock
 *.db
 *.sqlite
 *.sqlite3
+data/
 
 # Environment variables
 .env*

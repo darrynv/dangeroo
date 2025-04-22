@@ -1,466 +1,513 @@
 <p align="center">
-  <img src=".roo-docs\dangeroo.png" alt="DangerRoo - Boomerang Mode" width="500"/>
+  <img src=".roo-docs/dangeroo.png" alt="Dangeroo - Orchestration Mode" width="500"/>
 </p>
 
-# Dangeroo Mode - (Boomerang) Software Engineering Orchestrator
+# Dangeroo - Software Engineering Orchestrator
 
 ## Overview
 
-🦘Dangeroo Mode🤖 is an AI-powered system designed to assist with complex software engineering tasks. It operates through a sophisticated orchestration pattern, leveraging specialized AI "modes" to handle different aspects of the software development lifecycle. The central orchestrator, known as "Dangeroo Mode" (internally using Boomerang Mode in RooCode), breaks down large requests into minimal, self-contained subtasks, delegates them to the appropriate specialized mode, tracks progress, manages project context using a persistent memory bank, implements conditional structured logging, and facilitates continuous improvement through best practice checks and conflict resolution.
+**(Updated)**
+🦘Dangeroo🤖 is an AI-powered multi-agent system designed to assist with complex software engineering tasks through sophisticated orchestration. It leverages a central coordinator, "Boomerang Mode", which directs a team of specialized AI "modes" handling different aspects of the software development lifecycle. Boomerang breaks down large requests into minimal, self-contained subtasks, orchestrates the gathering of necessary context from multiple sources (persistent memory, documentation, live code analysis), delegates execution to specialized modes, tracks progress, manages structured knowledge storage, and facilitates continuous improvement through best practice checks and conflict resolution.
 
 The system is designed for robustness, traceability, and high-quality output by combining:
-*   **Specialization:** Different modes handle coding, architecture, testing, logging, etc.
-*   **Atomicity:** Tasks are broken down into the smallest logical units.
-*   **Statefulness:** A structured memory bank (`.roo-docs/`) maintains context, configuration, templates, logs, and **best practices** across sessions.
-*   **Advanced Prompting:** Techniques like Step-back, Chain-of-Thought, Self-Consistency, and Structured Outputs are used for clarity and reliability.
-*   **Explicit Guardrails:** Specific instructions ensure modes handle failures, safety, environmental factors, and **best practice conflicts** predictably.
-*   **Conditional Structured Logging:** Detailed task success/failure information is logged in a structured format (using templates) when `DEBUG_MODE` is enabled.
-*   **Best Practice Integration & Conflict Handling:** Explicitly incorporates project-defined best practices and includes a workflow for reviewing and potentially refactoring when conflicts arise between existing patterns and desired standards.
+
+*   **Orchestration (`Boomerang Mode`):** Central coordination, task decomposition, context synthesis, and workflow management.
+*   **Specialization:** Dedicated modes handle coding (`Code`), debugging (`Debug`), architecture (`Architect`), testing (`Tester`), requirements (`Requirements`), DevOps (`DevOps`), technical writing (`Writer`), security (`Security`), UI/UX (`UIUX`), and external system interactions.
+*   **Atomicity:** Tasks are broken down into the smallest logical, independent units.
+*   **Multi-Source Context:** Integrates information from:
+    *   **Persistent Knowledge Memory (Mem0):** Accessed via `Mem0Interface` for semantic search, pattern retrieval, and storing structured knowledge with rich metadata (leveraging v2 features like filters).
+    *   **External Documentation (Context7):** Accessed via `Context7Interface` for up-to-date API and library information.
+    *   **Live Code Analysis (LSP via BifrostMCP):** Accessed directly by `Code` and `Debug` modes for real-time diagnostics, type info, references, and code actions.
+    *   **Project Files (`.roo-docs/` & Source):** Accessed via `FileSystemInterface` for configuration, templates, logs, and literal file content.
+*   **Advanced Prompting:** Techniques like Step-back, Chain-of-Thought (within modes or reporting), and Structured Outputs are orchestrated for clarity and reliability.
+*   **Explicit Guardrails:** Specific instructions ensure modes handle failures, safety checks (including LSP-assisted cleanup), environmental factors, and best practice conflicts predictably.
+*   **Best Practice Integration & Conflict Handling:** Explicitly incorporates project-defined best practices (`.roo-docs/bestPractices.md`) and includes a workflow for reviewing and potentially refactoring when conflicts arise.
 
 ## Core Concepts
 
-### 1. Orchestration (Dangeroo Mode / Boomerang Mode)
-Dangeroo Mode acts as the central coordinator. It does not perform specific engineering tasks itself but instead focuses on:
-*   **Initial Context Loading:** Delegating to `MemoryKeeper` to load initial state, configuration (including `DEBUG_MODE`), and **relevant best practices** from `.roo-docs/`.
-*   **Task Decomposition:** Applying an "atom-of-thought" approach and evaluating the breakdown for true minimality.
-*   **Mode Selection:** Choosing the best specialized mode for each primary subtask.
-*   **Instruction Formulation:** Providing detailed, context-rich instructions for primary delegations, **including references to applicable best practices**.
-*   **Advanced Prompting:** Utilizing techniques strategically during primary task delegation.
-*   **Result Evaluation:** Analyzing the concise `attempt_completion` result from specialized modes to determine success or failure **and check for any flagged best practice conflicts**.
-*   **Conflict Resolution (Conditional):** If a significant conflict is flagged by a mode, initiating a review sub-flow (delegating review, evaluating recommendations, potentially delegating refactoring or logging tech debt).
-*   **Conditional Logging Orchestration:**
-    *   Checking if `DEBUG_MODE` is enabled (by **delegating a read** to `MemoryKeeper` *at the time of decision*).
-    *   If enabled, orchestrating the two-stage logging process: delegate detailed report generation to the original mode, then delegate log persistence to `roo-logger`.
-*   **State Management & Workflow Control:** Deciding the next primary workflow step based on the *core* subtask outcome (potentially after conflict resolution), e.g., delegate next task, delegate debugging, ask user, delegate core memory updates, synthesize.
-*   **Synthesis:** Consolidating results upon goal completion and triggering final memory updates, including potential updates to best practice documentation if refined during the process.
+### 1. Orchestration (`Boomerang Mode`)
 
-### 2. Specialized Modes (Delegates)
-Each specialized mode is an AI assistant focused on a specific domain, operating strictly under Dangeroo Mode's direction:
-*   **`code` (💻 Code):** Writes, modifies, and explains code.
-*   **`architect` (🏗️ Architect):** Executes atomic design tasks.
-*   **`ask` (❓ Ask):** Answers specific technical questions.
-*   **`debug` (🐞 Debug):** Performs specific debugging tasks.
-*   **`requirements` (📝 Requirements):** Drafts, clarifies, and documents requirements.
-*   **`tester` (🧪 Tester):** Writes tests, generates test data, analyzes results.
-*   **`devops` (⚙️ DevOps):** Handles specific CI/CD, infrastructure, build, and deployment tasks.
-*   **`writer` (✍️ Technical Writer):** Creates and updates documentation.
-*   **`uiux` (🎨 UI/UX Designer):** Provides conceptual UI/UX input.
-*   **`security` (🔒 Security Analyst):** Performs specific security reviews.
-*   **`memorykeeper` (💾 Memory Keeper):** Executes precise read/write operations on the memory bank files (core context, `.env`, templates).
-*   **`roo-logger` (📜 Roo Logger):** Receives pre-formatted JSON log data and appends it to the designated log file(s) (within `.roo-docs/logs/`).
+**(Updated)**
+Boomerang Mode acts as the central coordinator and strategic brain. It does not perform specific engineering tasks or directly use external tools (Mem0, Context7, LSP) itself. Instead, it focuses on:
 
-Modes execute their assigned *primary* task and report back *concisely* via `attempt_completion`, **now including a flag if a conflict with best practices was detected**. If `DEBUG_MODE` is on, the mode that performed the primary task (or a subsequent refactoring task) may receive a *secondary* task to provide detailed structured reporting by filling a JSON template. They are also responsible for adhering to best practices referenced in their instructions.
+*   **Task Decomposition:** Analyzing user requests and breaking them into atomic subtasks suitable for specialized modes.
+*   **Context Orchestration:** Strategically delegating information-gathering tasks *before* execution delegation:
+    *   To `Mem0Interface` for searching relevant patterns, history, and decisions using **advanced v2 filters** based on task type, components, category, etc.
+    *   To `Context7Interface` for retrieving specific, up-to-date documentation.
+    *   To `Code`/`Debug` for targeted initial LSP checks (e.g., `get_hover_info`) if needed for clarification.
+    *   To `FileSystemInterface` for reading config, templates, or specific files.
+*   **Context Synthesis:** Combining the gathered information (memory snippets, docs, LSP hints, file content) into a concise context package.
+*   **Execution Delegation:** Selecting the appropriate specialized mode (`Code`, `Debug`, etc.) and delegating the atomic subtask via `new_task`, providing the **synthesized context** and precise instructions.
+*   **Result Evaluation:** Analyzing the structured `attempt_completion` result from specialized modes (checking status, outcome, deliverables, metadata quality, conflict flags).
+*   **Memory Storage Orchestration:** Receiving proposed memory content (`content_for_mem0`) and metadata (`metadata_for_mem0`) from execution modes and delegating the actual `add_memory` command (including options like `immutable` or `expiration_date`) to `Mem0Interface`.
+*   **Workflow Control:** Managing the sequence of subtasks, handling failures, initiating clarification loops with the user (only after exhausting internal tools), orchestrating conflict reviews, and controlling conditional logging.
+*   **Synthesis & Reporting:** Consolidating results upon goal completion and presenting the final outcome to the user.
+
+### 2. Specialized Modes (Delegates & Interfaces)
+
+**(Updated)**
+The system utilizes several types of modes under Boomerang's direction:
+
+*   **Execution Modes:** Focused on specific domains. They receive atomic tasks and **synthesized context** from Boomerang.
+    *   `code` (💻 Code / LSP Enabled): Writes/modifies Python code, performs LSP checks (`get_diagnostics`, `find_references` etc.), implements cleanup.
+    *   `debug` (🐞 Debug / LSP Enabled): Diagnoses issues using logs, context, and heavy LSP interaction (`get_diagnostics`, `find_references`, `go_to_definition`, etc.).
+    *   `architect` (🏗️ Architect): Executes atomic design tasks (schemas, APIs).
+    *   `tester` (🧪 Tester): Creates tests, data; analyzes results.
+    *   `requirements` (📝 Requirements): Drafts, clarifies requirements.
+    *   `devops` (⚙️ DevOps): Handles specific infrastructure/CI/CD tasks.
+    *   `writer` (✍️ Technical Writer): Creates/updates documentation.
+    *   `uiux` (🎨 UI/UX Designer): Provides conceptual UI/UX input.
+    *   `security` (🔒 Security Analyst): Performs specific security reviews.
+    *   **Output:** Report back concisely via `attempt_completion`, providing structured content (`content_for_mem0`) and rich metadata (`metadata_for_mem0`) suitable for storage in Mem0, and flagging best practice conflicts.
+*   **Interface Modes (New):** Act as simple bridges to external MCP services, executing precise commands delegated by Boomerang.
+    *   `mem0-interface` (🧠 Mem0 Interface): Handles all `add_memory`, `search_memory` calls, including advanced v2 parameters like `filters`.
+    *   `context7-interface` (📚 Context7 Interface): Handles `resolve-library-id` and `get-library-docs`.
+    *   **Output:** Return raw results from the MCP tool to Boomerang.
+*   **Utility Modes:**
+    *   `filesystem-interface` (📁 File System Interface / Renamed): Handles **literal file I/O** (read/write/append) on specific paths (config, templates, logs, reading source) as directed by Boomerang. *Does not handle knowledge memory.*
+    *   `roo-logger` (📜 Roo Logger): Appends pre-formatted JSON log data to designated files.
 
 ### 3. Atom-of-Thought Principle
+
+**(Unchanged)**
 Every request is broken down into the smallest possible, logically independent steps. This allows for:
  *   **Manageability:** Reduces the complexity handled by any single mode instance.
  *   **Traceability:** Makes it easier to follow the workflow and pinpoint issues.
  *   **Parallelism:** Enables delegation of independent tasks simultaneously (platform permitting).
  *   **Reduced Error Propagation:** Limits the impact of a failure in one subtask.
 
-### 4. Memory Bank (`.roo-docs/`)
-This directory structure is the cornerstone of Roo's statefulness.
-*   **Persistence:** Stores project context, decisions, progress, history, configuration, templates, detailed logs, and **project-defined best practices**.
-*   **Structure:** Organized into key files and directories:
-    *   `.roo-docs/projectbrief.md`
-    *   `.roo-docs/productContext.md`
-    *   `.roo-docs/systemPatterns.md`
-    *   `.roo-docs/techContext.md`
-    *   `.roo-docs/activeContext.md`
-    *   `.roo-docs/progress.md`
-    *   `.roo-docs/bestPractices.md`: **(New)** Project-specific conventions, style guides, desired patterns, security guidelines.
-    *   `.roo-docs/.env`: Configuration variables (e.g., `DEBUG_MODE=TRUE`).
-    *   `.roo-docs/templates/`: JSON templates (`task_completion_template.json`, `issue_report_template.json`).
-    *   `.roo-docs/logs/`: Structured log files (e.g., `activity.log`).
-    *   *(Other files/folders as needed)*
-*   **Usage:** Dangeroo Mode orchestrates interactions via `MemoryKeeper` (for core files, `.env`, templates, `bestPractices.md`) and `roo-logger` (for `logs/`). The memory bank provides context for decision-making, defines desired quality standards, and stores detailed operational history when debugging is enabled.
+### 4. Memory Systems: Knowledge vs. Files
+
+**(Updated & Clarified)**
+The system now utilizes two distinct forms of memory:
+
+*   **Primary Knowledge Base (Mem0 via `Mem0Interface`):**
+    *   **Purpose:** Central repository for project knowledge, patterns, decisions, code snippets, explanations, lessons learned, debug analyses, reflections.
+    *   **Interaction:** Orchestrated exclusively by Boomerang via `Mem0Interface`.
+    *   **Strengths:** Leverages **semantic search** and **advanced v2 filtering** based on rich, structured **metadata** (`type`, `category`, `components`, `language`, `keywords`, etc.) for highly relevant context retrieval. Enables storing granular, interconnected knowledge units.
+*   **Project Artifacts & Configuration (`.roo-docs/` via `FileSystemInterface`):**
+    *   **Purpose:** Stores literal file artifacts essential for project operation and context.
+    *   **Interaction:** Orchestrated by Boomerang via `FileSystemInterface` for specific read/write/append tasks.
+    *   **Content:**
+        *   Configuration: `.roo-docs/.env` (e.g., `DEBUG_MODE`).
+        *   Core Definitions: `.roo-docs/projectbrief.md`, `.roo-docs/techContext.md`, etc. (potentially read for context, less frequently updated).
+        *   Standards: `.roo-docs/bestPractices.md`.
+        *   Templates: `.roo-docs/templates/` (for structured logging/reporting).
+        *   Logs: `.roo-docs/logs/` (managed by `RooLogger` or `FileSystemInterface`).
+        *   *(Other project-specific files)*
+    *   **Note:** This is *not* the primary searchable knowledge base for patterns or historical solutions; that role belongs to Mem0.
 
 ## Workflow Logic (Flowchart's)
 
-### Diagram Structure
-Due to the complexity of the system, the architecture is represented across five interconnected diagrams:
+**(Updated Intro Paragraph Only)**
+The system workflow, orchestrated by Boomerang, involves several phases. It coordinates specialized execution modes (`Code`, `Debug`, etc.), interface modes (`Mem0Interface`, `Context7Interface`, `FileSystemInterface`) for external systems, and direct LSP interaction for code intelligence. The following diagrams illustrate this flow:
 
-1. **Core Overview Diagram**: Illustrates the main process flow from user request to completion
-2. **Memory Bank Detail Diagram**: Shows the memory structure and how different processes interact with it
-3. **Subtask Instruction Detail Diagram**: Details how subtask instructions are formulated and structured
-4. **Safety & Conflict Resolution Diagram**: Demonstrates safety check processes and conflict handling
-5. **Logging & Reporting Diagram**: Shows the conditional debugging and logging capabilities
+### System Overview
 
-The following diagram illustrates the updated interaction flow, including the two-stage conditional logging process:
+This high-level diagram shows how the five main phases connect and interact with external systems:
 
+- The workflow begins with user interaction and proceeds through planning, execution, and result analysis
+- A feedback loop exists between result analysis and planning for multi-task scenarios
+- Each phase interacts with different external systems (Memory, Documentation, LSP, File System)
+- The workflow ultimately returns results to the user
 ```mermaid
 flowchart TD
-    %% Core Overview Diagram - Main flow without detailed subprocesses
+    Start([User Query]) --> B1[Boomerang: Deconstruct & ID Ambiguities]
+    B1 --> B2{Ambiguity Found?}
+    B2 -- Yes --> B3[Boomerang: Attempt Internal Resolution]
+    B3 --> B4_DelMem[Delegate Mem0 Search via Mem0Interface]
+    B3 --> B5_DelDoc[Delegate Context7 Docs via Context7Interface]
+    B3 --> B6_DelLSP[Delegate LSP Check via Code/Debug]
+    B3 --> B7_DelFile[Delegate File Read via FileSystemInterface]
     
-    A["Start | Receive User Request"] --> B_delegate[Delegate Initial Memory Review/Setup Task]
-    B_delegate --> B["Memory Setup (See Memory Bank Diagram)"]
-    B -- Provides Initial Context --> C["Atom-of-Thought Breakdown & Evaluation"]
-
-    C --> D[Select Appropriate Specialized Mode]
-    D --> J[Formulate Subtask Instructions]
-    
-    J --> J_details["(See Instructions Detail Diagram)"]
-    J --> D_delegate[Delegate Subtask via 'new_task' Tool]
-
-    D_delegate --> S[Specialized Mode Executes Primary Atomic Subtask]
-    S --> S_check{"Safety Check\n(See Safety & Conflict Resolution Diagram)"}
-    S_check --> S_comp["Subtask Signals Completion ('attempt_completion')"]
-    S_comp --> S_res["Subtask Provides Concise Result Summary"]
-    S_res --> E["Boomerang: Monitor & Analyze Result"]
-    
-    E --> E_conflict["Conflict Resolution\n(See Safety & Conflict Resolution Diagram)"]
-    E_conflict --> E_log["Conditional Logging\n(See Logging & Reporting Diagram)"]
-    
-    E_log --> F{"Significant Result/State Change\nRequiring Immediate Memory Update?"}
-    F -- Yes --> I_delegate[Delegate Core Memory Update Task]
-    I_delegate --> I_exec["MemoryKeeper Updates Core Files"]
-    I_exec --> G
-
-    F -- No --> G
-
-    G{All Subtasks for Current Goal/Phase Completed?}
-    G -- No --> C
-    G -- Yes --> H[Boomerang: Synthesize Results for Completed Goal]
-    H --> I_final_delegate[Delegate Final/Comprehensive Memory Update Task]
-    I_final_delegate --> I_final_exec[MemoryKeeper Performs Comprehensive Update]
-    I_final_exec --> Z["Goal Complete | Report Synthesis to User | Await Next Major Task"]
-
-    %% Styling
-    classDef process fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
-    classDef decision fill:#fffacd,stroke:#daa520,stroke-width:2px
-    classDef memory fill:#ffe4e1,stroke:#cd5c5c,stroke-width:2px
-    classDef instruction fill:#f0f8ff,stroke:#4682b4,stroke-width:2px
-    classDef subtask fill:#fff8dc,stroke:#b8860b,stroke-width:2px,stroke-dasharray:5 5
-    classDef delegate fill:#e0ffff,stroke:#008b8b,stroke-width:2px
-    classDef connector fill:#d3d3d3,stroke:#696969,stroke-width:2px,stroke-dasharray:5 5
-    
-    class A,C,D,E,H,Z process
-    class F,G,S_check decision
-    class B memory
-    class J instruction
-    class S,S_comp,S_res subtask
-    class D_delegate,I_delegate,I_final_delegate,B_delegate delegate
-    class J_details,E_conflict,E_log connector
-```
-### Key Components
-
-#### Memory Bank
-The system maintains a structured memory bank containing critical files:
-
-* Core files (projectbrief.md, productContext.md, systemPatterns.md, etc.)
-* Environment configuration (.env)
-* Logs directory (logs/)
-* Templates directory (templates/)
-* Best practices (bestPractices.md)
-
-```mermaid
-flowchart TD
-    %% Memory Bank Detail Diagram
-    
-    %% Connection from Core Diagram
-    B_ref[From Core: Memory Setup] --> B_exec
-    
-    subgraph ProjectMemoryBank [Memory Bank - Single Source of Truth]
+    subgraph Interfaces [Interface Modes]
         direction LR
-        K1[projectbrief.md]
-        K2[productContext.md]
-        K3[systemPatterns.md]
-        K4[techContext.md]
-        K5[activeContext.md]
-        K6[progress.md]
-        K_Env[.env]
-        K_Logs[logs/]
-        K_Tmpl[templates/]
-        K_BP[bestPractices.md]
-        K_Other[...]
+        MemIF[Mem0Interface]
+        CtxIF[Context7Interface]
+        FSIf[FileSystemInterface]
     end
 
-    B_exec["MemoryKeeper: Read Context / Create Files"] -- "Read/Write" --> ProjectMemoryBank
-    B_exec --> B_res["MemoryKeeper: Return Context / Confirm Setup"]
-    B_res --> B_return[Return to Core: Initial Context Provided]
+    B4_DelMem --> MemIF
+    MemIF -- Raw Results --> B8[Boomerang: Collect Context]
+    B5_DelDoc --> CtxIF
+    CtxIF -- Raw Results --> B8
+    B6_DelLSP -- Delegate --> ExecLSPCheck[(Code/Debug Mode Executes LSP Check)]
+    ExecLSPCheck -- Raw Results --> B8
+    B7_DelFile --> FSIf
+    FSIf -- Raw Content --> B8
     
-    %% Other connections to memory
-    Core_Update[From Core: Memory Updates] --> I_exec["MemoryKeeper Updates Core File(s) (K1-K6)"]
-    I_exec -- "Updates" --> ProjectMemoryBank
-    I_exec --> Return_Core[Return to Core]
-    
-    Core_Final[From Core: Final Memory Update] --> I_final_exec["MemoryKeeper Performs Comprehensive Update"]
-    I_final_exec -- "Updates" --> ProjectMemoryBank
-    I_final_exec --> Return_Core_Final[Return to Core]
-    
-    %% Connections from other diagrams
-    Log_Write[From Logging: Write Logs] -- "Writes" --> K_Logs
-    Template_Read[From Logging: Read Templates] -- "Reads" --> K_Tmpl
-    BP_Read[From Safety: Read Best Practices] -- "Reads" --> K_BP
-    Env_Read[From Logging: Read Environment] -- "Reads" --> K_Env
-    Progress_Write[From Safety: Write Tech Debt] -- "Writes" --> K6
+    B2 -- No --> B8
 
+    B8 --> B9{Ambiguity Persists?}
+    B9 -- Yes --> AskUser[Boomerang: Ask User Clarification]
+    AskUser --> Start
+    B9 -- No --> ToPlanning([To Planning Phase])
+    
     %% Styling
-    classDef process fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
-    classDef memory fill:#ffe4e1,stroke:#cd5c5c,stroke-width:2px
-    classDef connector fill:#d3d3d3,stroke:#696969,stroke-width:2px,stroke-dasharray:5 5
-    classDef initial_mem fill:#f5f5dc,stroke:#8b4513,stroke-width:2px
-    
-    class K1,K2,K3,K4,K5,K6,K_Env,K_Logs,K_Tmpl,K_BP,K_Other memory
-    class I_exec,I_final_exec memory
-    class B_ref,Core_Update,Core_Final,Log_Write,Template_Read,BP_Read,Env_Read,Progress_Write,B_return,Return_Core,Return_Core_Final connector
-    class B_exec,B_res initial_mem
-``` 
+    classDef orchestrator fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
+    classDef decision fill:#fffacd,stroke:#daa520,stroke-width:2px
+    classDef interface fill:#e0ffff,stroke:#008b8b,stroke-width:2px
+    classDef execution fill:#fff0f5,stroke:#cd5c5c,stroke-width:2px
+    classDef delegate fill:#fafad2,stroke:#b8860b,stroke-width:1px,stroke-dasharray: 5 5
+    classDef startend fill:#d3d3d3,stroke:#000000,stroke-width:2px
 
-#### Process Flow
+    class B1,B3,B8 orchestrator
+    class B2,B9 decision
+    class MemIF,CtxIF,FSIf interface
+    class ExecLSPCheck execution
+    class B4_DelMem,B5_DelDoc,B6_DelLSP,B7_DelFile delegate
+    class Start,ToPlanning startend
+    class AskUser execution
+```
+### 1. User Interaction and Ambiguity Resolution
 
-* User requests are received and broken down into atomic subtasks
-* Appropriate specialized modes are selected for each subtask
-* Tasks are delegated with clear instructions and constraints
-* Safety checks occur before risky operations
-* Results are analyzed and conflicts are addressed through a review process
-* Conditional logging occurs based on debug settings
-* Memory is updated either incrementally or comprehensively
+This phase handles the initial processing of user queries:
 
-#### Subtask Instruction Detail
-Displays the detailed instruction structure used when delegating tasks to specialized modes.
+- **Start**: The user submits a query
+- **Ambiguity Detection**: Boomerang analyzes the query to identify ambiguities
+- **Information Gathering**: If ambiguities exist, the system attempts to resolve them by:
+  - Searching memory via Mem0Interface
+  - Checking documentation via Context7Interface
+  - Using LSP for code-related queries
+  - Reading files via FileSystemInterface
+- **Resolution Loop**: If ambiguities persist after gathering information, Boomerang asks the user for clarification
+- **Transition**: Once all ambiguities are resolved, flow continues to the Planning phase
 ```mermaid
 flowchart TD
-    %% Subtask Instruction Detail Diagram
+    Start([User Query]) --> B1[Boomerang: Deconstruct & ID Ambiguities]
+    B1 --> B2{Ambiguity Found?}
+    B2 -- Yes --> B3[Boomerang: Attempt Internal Resolution]
+    B3 --> B4_DelMem[Delegate Mem0 Search via Mem0Interface]
+    B3 --> B5_DelDoc[Delegate Context7 Docs via Context7Interface]
+    B3 --> B6_DelLSP[Delegate LSP Check via Code/Debug]
+    B3 --> B7_DelFile[Delegate File Read via FileSystemInterface]
     
-    %% Connection from Core Diagram
-    Core_J[From Core: Formulate Subtask Instructions] --> J
-    
-    J[Formulate Subtask Instructions]
-    
-    subgraph SubtaskInstructionDetails [Instructions for Delegated Mode]
-        direction TB
-        J1["Context (Initial & Ongoing)"]
-        J2[Clearly Defined Scope]
-        J_EnvAware[Note: Environment Assumptions]
-        J_BPRef[Note: Adhere to K_BP & Flag Conflicts] 
-        J3[Constraint: Only Perform Outlined Work]
-        J_Safety[Constraint: Safety Check before Risky Tools]
-        J_Idem[Note: Strive for Idempotency/Minimal Side Effects]
-        J4[Requirement: Signal Completion via 'attempt_completion']
-        J4a[Requirement: Report Failures via 'attempt_completion' w/ Details]
-        J5["Requirement: Provide Concise Result Summary (Success/Failure + Conflicts?)"] 
-        J6[Rule: These Instructions Override Mode Defaults]
+    subgraph Interfaces [Interface Modes]
+        direction LR
+        MemIF[Mem0Interface]
+        CtxIF[Context7Interface]
+        FSIf[FileSystemInterface]
     end
-    
-    J --> SubtaskInstructionDetails
-    
-    J --> J_Return[Return to Core: Proceed to Delegation]
-    
-    %% Connections to other diagrams
-    J_BPRef -. "References" .-> BP_Ref[To Memory: Best Practices]
-    J_Safety -. "Enforces" .-> Safety_Check[To Safety: Safety Check Process]
 
-    %% Styling
-    classDef instruction fill:#f0f8ff,stroke:#4682b4,stroke-width:2px
-    classDef connector fill:#d3d3d3,stroke:#696969,stroke-width:2px,stroke-dasharray:5 5
+    B4_DelMem --> MemIF
+    MemIF -- Raw Results --> B8[Boomerang: Collect Context]
+    B5_DelDoc --> CtxIF
+    CtxIF -- Raw Results --> B8
+    B6_DelLSP -- Delegate --> ExecLSPCheck[(Code/Debug Mode Executes LSP Check)]
+    ExecLSPCheck -- Raw Results --> B8
+    B7_DelFile --> FSIf
+    FSIf -- Raw Content --> B8
     
-    class J,J1,J2,J3,J4,J4a,J5,J6,J_EnvAware,J_Safety,J_Idem,J_BPRef instruction
-    class Core_J,J_Return,BP_Ref,Safety_Check connector
-``` 
-#### Safety & Conflict Resolution
-Details both the safety check loop for risky operations and the conflict resolution process.
+    B2 -- No --> B8
+
+    B8 --> B9{Ambiguity Persists?}
+    B9 -- Yes --> AskUser[Boomerang: Ask User Clarification]
+    AskUser --> Start
+    B9 -- No --> ToPlanning([To Planning Phase])
+    
+    %% Styling
+    classDef orchestrator fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
+    classDef decision fill:#fffacd,stroke:#daa520,stroke-width:2px
+    classDef interface fill:#e0ffff,stroke:#008b8b,stroke-width:2px
+    classDef execution fill:#fff0f5,stroke:#cd5c5c,stroke-width:2px
+    classDef delegate fill:#fafad2,stroke:#b8860b,stroke-width:1px,stroke-dasharray: 5 5
+    classDef startend fill:#d3d3d3,stroke:#000000,stroke-width:2px
+
+    class B1,B3,B8 orchestrator
+    class B2,B9 decision
+    class MemIF,CtxIF,FSIf interface
+    class ExecLSPCheck execution
+    class B4_DelMem,B5_DelDoc,B6_DelLSP,B7_DelFile delegate
+    class Start,ToPlanning startend
+    class AskUser execution
+```
+### 2. Planning and Subtask Definition
+
+This phase covers how tasks are planned and broken down:
+
+- **Context Synthesis**: Boomerang synthesizes all available context and defines subtasks
+- **Planning Decision**: Determines if additional planning is needed
+- **Specialized Planning**: If needed, delegates planning to the appropriate mode (like Architect)
+- **Plan Analysis**: Analyzes the resulting plan
+- **User Confirmation**: Optionally gets user confirmation on the plan
+- **Task Delegation**: Selects the appropriate mode and delegates the execution subtask
 ```mermaid
 flowchart TD
-    %% Safety & Conflict Resolution Diagram
+    FromUserInteraction([From User Interaction]) --> B10[Boomerang: Synthesize Context & Define Subtasks]
+    B10 --> B11{Planning Needed?}
+    B11 -- Yes --> B12_DelPlan[Delegate Planning Task to Architect]
+    B12_DelPlan --> ExecPlan[(Specialized Mode Executes Planning Task)]
+    ExecPlan -- Planning Result --> B13[Boomerang: Analyze Plan]
+    B11 -- No --> B13
     
-    %% Connection from Core Diagram
-    Core_S[From Core: Specialized Mode Execution] --> S
-    
-    S[Specialized Mode Executes Primary Atomic Subtask]
-    
-    %% Safety Check Loop
-    S --> S_check{Risky Tool Use?}
-    S_check -- Yes --> S_ask[Subtask asks Boomerang]
-    S_ask --> E_q[Boomerang Evaluates Safety]
-    E_q --> S_confirm[Boomerang Confirms/Denies]
-    S_confirm --> S
-    
-    S_check -- No --> Safety_Return[Return to Core: Task Completion]
-    
-    %% Conflict Resolution Process
-    Core_E[From Core: After Result Analysis] --> E_conflict_check
-    
-    E_conflict_check{Conflict Flagged & Review Warranted?}
-    E_conflict_check -- Yes --> R_delegate_review["Delegate Review Task\n(to Architect/Code)"]
-    R_delegate_review --> R_review_exec["Mode Performs Review\n(Compares Conflict, Recommends Action)"]
-    R_review_exec --> R_review_res["Mode Returns Review & Recommendation"]
-    R_review_res --> R_eval_review[Boomerang Evaluates Recommendation]
-    
-    R_eval_review --> R_refactor_decision{"Accept Recommendation?\n(e.g., Refactor, Log Debt, Ignore)"}
-    
-    R_refactor_decision -- "Refactor" --> R_delegate_refactor["Delegate Refactoring Task\n(to Code)"]
-    R_delegate_refactor --> R_refactor_exec["Code Mode Performs Refactoring"]
-    R_refactor_exec --> R_refactor_res["Code Mode Returns Refactor Result"]
-    R_refactor_res --> Conflict_Return
-    
-    R_refactor_decision -- "Log Tech Debt" --> I_delegate_debt["Delegate Memory Update\n(Log Debt in progress.md)"]
-    I_delegate_debt --> I_exec_debt["MemoryKeeper Logs Tech Debt"]
-    I_exec_debt --> Conflict_Return
-    
-    R_refactor_decision -- "Ignore/Maintain" --> Conflict_Return
-    E_conflict_check -- No --> Conflict_Return
-    
-    Conflict_Return[Return to Core: Proceed to Logging]
-    
-    %% Connections to other diagrams
-    R_review_exec -. "Reads" .-> BP_Read[To Memory: Best Practices]
-    I_exec_debt -. "Writes" .-> Progress_Write[To Memory: Tech Debt Log]
+    B13 --> B14{User Confirmation on Plan?}
+    B14 -- If Needed --> AskUserPlan[Boomerang: Ask User Plan Confirmation]
+    AskUserPlan --> B13
+    B14 -- Confirmed / Not Needed --> B15[Boomerang: Select Mode & Delegate Subtask]
+    B15 --> ToExecution([To Execution Phase])
     
     %% Styling
-    classDef process fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
+    classDef orchestrator fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
     classDef decision fill:#fffacd,stroke:#daa520,stroke-width:2px
-    classDef subtask fill:#fff8dc,stroke:#b8860b,stroke-width:2px,stroke-dasharray:5 5
-    classDef delegate fill:#e0ffff,stroke:#008b8b,stroke-width:2px
-    classDef safety fill:#fff0f5,stroke:#ff69b4,stroke-width:2px
-    classDef connector fill:#d3d3d3,stroke:#696969,stroke-width:2px,stroke-dasharray:5 5
-    classDef memory fill:#ffe4e1,stroke:#cd5c5c,stroke-width:2px
-    classDef review fill:#f0e68c,stroke:#b8860b,stroke-width:2px
-    
-    class S,R_eval_review process
-    class S_check,E_conflict_check,R_refactor_decision decision
-    class S subtask
-    class R_delegate_review,R_delegate_refactor,I_delegate_debt delegate
-    class S_ask,E_q,S_confirm safety
-    class Core_S,Core_E,Safety_Return,Conflict_Return,BP_Read,Progress_Write connector
-    class I_exec_debt memory
-    class R_review_exec,R_review_res review
-    class R_refactor_exec,R_refactor_res subtask
-``` 
+    classDef execution fill:#fff0f5,stroke:#cd5c5c,stroke-width:2px
+    classDef delegate fill:#fafad2,stroke:#b8860b,stroke-width:1px,stroke-dasharray: 5 5
+    classDef startend fill:#d3d3d3,stroke:#000000,stroke-width:2px
 
-#### Logging & Reporting
-Shows the conditional logging process based on debug settings.
+    class B10,B13 orchestrator
+    class B11,B14 decision
+    class ExecPlan execution
+    class B12_DelPlan,B15 delegate
+    class FromUserInteraction,ToExecution startend
+    class AskUserPlan execution
+```
+### 3. Subtask Execution and LSP Integration
+
+This phase shows how subtasks are executed and how code-related modes interact with LSP:
+
+- **Execution Modes**: Showcases the variety of specialized execution modes available
+- **LSP Integration**: Details how Code and Debug modes interact with LSP
+- **Task Delegation**: Shows how tasks are delegated to the appropriate mode
+- **Result Collection**: How results are collected and passed back to Boomerang
 ```mermaid
 flowchart TD
-    %% Logging & Reporting Diagram
+    FromPlanning([From Planning Phase]) --> ExecTaskStart{Execute Subtask}
     
-    %% Connection from Core Diagram
-    Core_Log[From Core: After Conflict Resolution] --> E_checkEnv
+    subgraph ExecutionModes ["Specialized Execution Modes"]
+        CodeMode[Code - Uses LSP]
+        DebugMode[Debug - Uses LSP]
+        ArchitectMode[Architect]
+        TesterMode[Tester]
+        ReqMode[Requirements]
+        DevOpsMode[DevOps]
+        WriterMode[Writer]
+        SecurityMode[Security]
+        UIUXMode[UI/UX]
+        OtherModes[...]
+    end
+
+    subgraph LSPInteraction ["LSP Server via BifrostMCP"]
+         LSP[(LSP)]
+    end
+
+    ExecTaskStart --> ExecutionModes 
     
-    %% Conditional Logging Process
-    E_checkEnv[Delegate: Read DEBUG_MODE from .env]
-    E_checkEnv --> E_envRes[MemoryKeeper Returns DEBUG_MODE Status]
-    E_envRes --> E_debugDecision{DEBUG_MODE == TRUE?}
+    %% LSP Interaction for relevant modes
+    CodeMode --> LSP
+    DebugMode --> LSP
+    LSP --> CodeMode
+    LSP --> DebugMode
     
-    E_debugDecision -- Yes --> L_delegate_report["Delegate Reporting Task\n(to Original Mode)"]
-    L_delegate_report --> L_report_exec["Original Mode: Fill Template\n(Reads templates/, uses task context)"]
-    L_report_exec --> L_report_res["Original Mode: Return Filled Template (JSON)"]
-    
-    L_report_res -- Provides Filled Template --> L_delegate_log["Delegate Logging Task\n(to RooLogger)"]
-    L_delegate_log --> L_exec["RooLogger: Append JSON to Log File (in logs/)"]
-    L_exec --> L_res["RooLogger: Confirm Log Append"]
-    L_res --> Log_Return
-    
-    E_debugDecision -- No --> Log_Return
-    
-    Log_Return[Return to Core: Proceed to Memory Update Decision]
-    
-    %% Connections to other diagrams
-    E_checkEnv -. "Reads" .-> Env_Read[To Memory: Environment]
-    L_report_exec -. "Reads" .-> Template_Read[To Memory: Templates]
-    L_exec -. "Writes" .-> Log_Write[To Memory: Logs]
+    ExecutionModes --> B16[Boomerang: Analyze Subtask Result]
+    B16 --> ToResult([To Result Analysis])
     
     %% Styling
+    classDef orchestrator fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
     classDef decision fill:#fffacd,stroke:#daa520,stroke-width:2px
-    classDef delegate fill:#e0ffff,stroke:#008b8b,stroke-width:2px
-    classDef connector fill:#d3d3d3,stroke:#696969,stroke-width:2px,stroke-dasharray:5 5
-    classDef initial_mem fill:#f5f5dc,stroke:#8b4513,stroke-width:2px
-    classDef logging fill:#fafad2,stroke:#b0e0e6,stroke-width:2px
-    classDef report fill:#e6e6fa,stroke:#9370db,stroke-width:2px
+    classDef execution fill:#fff0f5,stroke:#cd5c5c,stroke-width:2px
+    classDef lsp fill:#f0f8ff,stroke:#4682b4,stroke-width:2px
+    classDef startend fill:#d3d3d3,stroke:#000000,stroke-width:2px
+
+    class B16 orchestrator
+    class ExecTaskStart decision
+    class ExecutionModes,CodeMode,DebugMode,ArchitectMode,TesterMode,ReqMode,DevOpsMode,WriterMode,SecurityMode,UIUXMode,OtherModes execution
+    class LSPInteraction,LSP lsp
+    class FromPlanning,ToResult startend
+```
+### 4. Result Analysis and Task Looping
+
+This phase illustrates how results are processed and how the system handles task looping:
+
+- **Result Analysis**: Boomerang analyzes the results from executed subtasks
+- **Success Evaluation**: Determines if the subtask was successful
+- **Failure Handling**: Processes failures (retry, ask user, abort)
+- **Memory Storage**: Stores relevant content in memory via Mem0Interface
+- **Subtask Loop**: Determines if more subtasks are needed, looping back to planning if necessary
+```mermaid
+flowchart TD
+    FromExecution([From Execution Phase]) --> B16[Boomerang: Analyze Subtask Result]
+    B16 --> B17{Success?}
+    B17 -- No --> HandleFailure[Boomerang: Handle Failure]
+    HandleFailure --> B21{More Subtasks?}
+    B17 -- Yes --> B18{Content to Store?}
     
-    class E_debugDecision decision
-    class L_delegate_report,L_delegate_log,E_checkEnv delegate
-    class Core_Log,Log_Return,Env_Read,Template_Read,Log_Write connector
-    class E_envRes initial_mem
-    class L_report_exec,L_report_res report
-    class L_exec,L_res logging
-``` 
+    B18 -- Yes --> B19_DelStore[Delegate Storage Task via Mem0Interface]
+    B19_DelStore --> MemIF[Mem0Interface]
+    MemIF -- Storage Confirmation --> B20[Boomerang: Acknowledge Storage]
+    B18 -- No --> B20
 
-## Workflow Explanation (Updated)
-1.  Dangeroo Mode initiates context loading via `MemoryKeeper`, including **best practices** and `.env` (`B_delegate` -> `B_res`).
-2.  It breaks down the user request (`C`), ensuring atomicity.
-3.  It delegates the primary subtask (`D_delegate`) to a specialized mode (`S`), **referencing best practices**.
-4.  **Safety Check:** The mode checks for risky operations (`S_check`) and requests confirmation if needed.
-5.  **Completion:** The mode completes the primary task, reporting a *concise* success/failure summary **including any conflict flags** (`S_comp` -> `S_res`).
-6.  **Evaluation & Conflict Handling:** Dangeroo analyzes the concise result (`E`). If a conflict is flagged and review is warranted, it initiates a **Review/Refactor sub-flow** (`E_conflict_check` block): delegating review, evaluating the recommendation, and potentially delegating refactoring or logging tech debt. The flow then proceeds based on the *effective* outcome (original or refactored).
-7.  **Conditional Logging:**
-    *   Dangeroo **delegates a check** for the *current* `DEBUG_MODE` status (`E_checkEnv`).
-    *   If TRUE, it orchestrates the two-stage logging: delegates detailed report generation to the originating mode (`L_delegate_report` -> `L_report_res`), then delegates log persistence to `roo-logger` (`L_delegate_log` -> `L_res`).
-8.  **Core Workflow Continuation:** The flow proceeds to decision point `F`, based on the *effective concise result* from step 5 (or the result of a refactor from step 6).
-9.  **Core Memory Update:** Dangeroo decides if an *immediate* update to core memory files is needed (`F`) and delegates if required.
-10. **Next Step Decision:** Dangeroo determines the next primary action (`G`) - loop back to breakdown (`C`), synthesize (`H`), etc.
-11. **Finalization:** Synthesize results (`H`), delegate final comprehensive core memory updates (`I_final_delegate` -> `I_final_exec`), and report to the user (`Z`).
+    B20 --> B21
+    B21 -- Yes --> LoopToPlanning([Back to Planning])
+    B21 -- No --> ToFinalization([To Finalization Phase])
+    
+    %% Styling
+    classDef orchestrator fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
+    classDef decision fill:#fffacd,stroke:#daa520,stroke-width:2px
+    classDef interface fill:#e0ffff,stroke:#008b8b,stroke-width:2px
+    classDef delegate fill:#fafad2,stroke:#b8860b,stroke-width:1px,stroke-dasharray: 5 5
+    classDef startend fill:#d3d3d3,stroke:#000000,stroke-width:2px
 
-## Advanced Prompting Techniques (Includes minor clarification)
+    class B16,B20,HandleFailure orchestrator
+    class B17,B18,B21 decision
+    class MemIF interface
+    class B19_DelStore delegate
+    class FromExecution,LoopToPlanning,ToFinalization startend
+```
+### 5. Final Results and Memory Updates
 
-Dangeroo Mode employs several techniques to improve the quality and reliability of the workflow:
+This phase shows the final stage where results are synthesized and presented:
 
--   **Step-back Prompting:** Used by Dangeroo Mode when a user request is ambiguous or a path forward isn't clear. It involves asking clarifying questions or exploring options *before* delegating subtasks.
+- **Final Synthesis**: Boomerang synthesizes the final results from all completed subtasks
+- **Memory Update**: Optionally stores a comprehensive summary in memory
+- **Final Report**: Prepares the final report for the user
+- **Completion**: Reports results and reflections to the user
+```mermaid
+flowchart TD
+    FromResultAnalysis([From Result Analysis]) --> B22[Boomerang: Synthesize Final Result]
+    B22 --> B23{Final Memory Update?}
+    B23 -- Yes --> B24_DelFinalStore[Delegate Final Summary Storage]
+    B24_DelFinalStore --> MemIF[Mem0Interface]
+    MemIF -- Storage Confirmation --> B25[Boomerang: Prepare Final Report]
+    B23 -- No --> B25
+    B25 --> End([Report Result to User])
+    
+    %% Styling
+    classDef orchestrator fill:#e6f5d0,stroke:#6b8e23,stroke-width:2px
+    classDef decision fill:#fffacd,stroke:#daa520,stroke-width:2px
+    classDef interface fill:#e0ffff,stroke:#008b8b,stroke-width:2px
+    classDef delegate fill:#fafad2,stroke:#b8860b,stroke-width:1px,stroke-dasharray: 5 5
+    classDef startend fill:#d3d3d3,stroke:#000000,stroke-width:2px
+
+    class B22,B25 orchestrator
+    class B23 decision
+    class MemIF interface
+    class B24_DelFinalStore delegate
+    class FromResultAnalysis,End startend
+```
+## Technical Implementation Notes
+
+- The flowcharts use color-coding to distinguish different types of components:
+  - Orchestration steps (green)
+  - Decision points (yellow)
+  - Interface operations (light blue)
+  - Execution modes (light pink)
+  - LSP interactions (blue)
+  - Delegation actions (dashed yellow)
+- Each phase connects with the subsequent phase through transition points
+- The system implements recursive loops at multiple levels for refinement and multi-task handling
+- Interface modes are consistently used to abstract system interactions
+```mermaid
+flowchart TD
+    User([User]) <--> A[User Interaction\nPhase]
+    A --> B[Planning & Task\nDefinition Phase]
+    B --> C[Subtask\nExecution Phase]
+    C --> D[Result Analysis\n& Loop Phase]
+    D -->|More Tasks| B
+    D -->|Complete| E[Finalization\nPhase]
+    E --> User
+    
+    %% External Systems
+    F[(Memory\nSystem)] <--> A
+    F <--> D
+    F <--> E
+    G[(Documentation\nSystem)] <--> A
+    H[(LSP\nSystem)] <--> C
+    I[(File\nSystem)] <--> A
+    
+    %% Styling
+    classDef phase fill:#f9f9f9,stroke:#333,stroke-width:2px
+    classDef system fill:#e0ffff,stroke:#008b8b,stroke-width:2px
+    classDef user fill:#d3d3d3,stroke:#000000,stroke-width:2px
+    
+    class A,B,C,D,E phase
+    class F,G,H,I system
+    class User user
+```
+## Workflow Explanation (High-Level Summary)
+
+**(Updated to reflect new roles)**
+1.  Boomerang receives a user request, deconstructs it, and identifies ambiguities.
+2.  Boomerang orchestrates context gathering by delegating tasks to `Mem0Interface`, `Context7Interface`, `Code`/`Debug` (for LSP), and `FileSystemInterface`.
+3.  If ambiguities persist after tool use, Boomerang asks the user for clarification.
+4.  Boomerang synthesizes the gathered context and defines atomic subtasks.
+5.  Boomerang delegates planning tasks (if needed) to modes like `Architect`.
+6.  Boomerang delegates execution subtasks (like coding or debugging) to the appropriate specialized mode, providing the synthesized context. Modes like `Code`/`Debug` use LSP directly during execution.
+7.  The specialized mode executes its atomic task, performs safety checks (like using LSP `find_references` before cleanup), and reports concise results (including content/metadata for memory and conflict flags) via `attempt_completion`.
+8.  Boomerang analyzes the result, handles failures, orchestrates conflict review/refactoring if needed, and delegates memory storage via `Mem0Interface` (using advanced parameters like `immutable`).
+9.  Boomerang checks if conditional logging is needed (via `FileSystemInterface` check of `.env`) and orchestrates it using the original mode and `RooLogger` (or `FileSystemInterface`).
+10. Boomerang loops back to delegate the next subtask or proceeds to final synthesis if the goal is complete.
+11. Boomerang reports the final synthesized outcome to the user.
+
+## Advanced Prompting Techniques (Refined for Orchestration)
+
+Boomerang orchestrator leverages several techniques, often by instructing specialized modes, to improve the quality and reliability of the workflow:
+
+*   **Step-back Prompting:** Used by **Boomerang** for initial ambiguity resolution or planning adjustment **before** committing to **execution** delegation. **After attempting internal context gathering via interface modes (Mem0, Context7, LSP, FileSystem),** Boomerang assesses if clarity is sufficient. If not, it steps back to ask the user clarifying questions via `ask_followup_question`, ensuring a clearer path forward before proceeding with subtask delegation.
     ```mermaid
     flowchart LR
-        A["Ambiguous User Request"] --> B["Dangeroo Mode Steps Back"]
-        B --> C["Clear Path Forward"]
-        B --> D["Ask Clarifying Questions"]
-        D -->|"Clarification"| B
+        A["Ambiguous User Request"] --> B["Boomerang Gathers Initial Context (via Delegation)"]
+        B --> B2{Ambiguity Persists?}
+        B2 -- Yes --> C["Boomerang Steps Back (Ask User)"]
+        C -->|"Clarification"| B1["Re-evaluate Path"]
+
+        B2 -- No --> D["Clear Path Forward (Proceed to Planning/Delegation)"]
+
 
         classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px,color:#333
         classDef focus fill:#d4e6f1,stroke:#2874a6,stroke-width:2px,color:#000
 
-        class B focus
+        class B,B2,C focus
     ```
--   **Chain-of-Thought (CoT):** Dangeroo Mode may explicitly request specialized modes to include concise reasoning steps in their *concise* result summary or, more likely, request it as part of the *detailed reporting task* (when `DEBUG_MODE` is on). This aids transparency and debugging. CoT results may be stored in the memory bank or the detailed logs.
+*   **Chain-of-Thought (CoT):** May be requested by **Boomerang** *from* specialized modes. Boomerang instructs the mode (via `new_task`) to include concise reasoning steps **within its structured result (`content_for_mem0` or `core_outcome`)**. This is particularly useful for complex tasks where understanding the mode's reasoning is important for validation or debugging. More extensive CoT is typically requested as part of the detailed reporting task (when `DEBUG_MODE` is on).
     ```mermaid
     flowchart LR
-        A["Complex Task"] --> B["Dangeroo Mode Requests CoT (in primary or reporting task)"]
+        A["Complex Task"] --> B["Boomerang Instructs Mode (via new_task) to Include CoT"]
         B --> C["Specialized Mode Execution"]
-        C --> D["Transparent Result/Report"]
+        C --> D["Mode Includes Reasoning in attempt_completion Payload (content_for_mem0 / core_outcome)"]
+        D --> E["Boomerang Receives Transparent Result"]
 
-        C --> E["Include reasoning steps\nin summary/template"]
-        E --> B
 
         classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px,color:#333
         classDef focus fill:#d4e6f1,stroke:#2874a6,stroke-width:2px,color:#000
         classDef reasoning fill:#d5f5e3,stroke:#1e8449,stroke-width:2px,color:#000
 
         class B focus
-        class E reasoning
+        class D reasoning
     ```
--   **Self-Consistency:** For critical or error-prone subtasks, Dangeroo Mode may ask a mode to generate multiple distinct solutions/outputs during the *primary* task. Dangeroo Mode then analyzes these for consistency or correctness *before* proceeding (Step `E` in main flowchart). Validation outcomes can be stored in the memory bank or logs.
+*   **Self-Consistency:** For critical tasks, **Boomerang** might instruct a specialized mode (via `new_task`) to generate multiple distinct outputs (e.g., alternative code solutions, different design options). The mode returns these variations within its `attempt_completion` result. **Boomerang** then analyzes these results for consistency, correctness, or to select the best option before proceeding.
     ```mermaid
     flowchart TD
-        A["Critical Task"] --> B["Dangeroo Mode Requests Multiple Solutions"]
+        A["Critical Task"] --> B["Boomerang Instructs Mode (via new_task) to Generate Multiple Solutions"]
 
-        B --> C["Solution A"]
-        B --> D["Solution B"]
-        B --> E["Solution C"]
+        B --> C["Specialized Mode Generates Solutions"]
 
-        C --> F["Dangeroo Mode Analyzes Consistency (Step E)"]
-        D --> F
-        E --> F
+        C --> D["Mode Returns Solutions A, B, C in attempt_completion"]
 
-        F --> G["Final Validated Result/Decision"]
+        D --> E["Boomerang Analyzes Consistency\n(Receives & Evaluates Mode's Output)"]
+
+
+        E --> F["Final Validated Result/Decision by Boomerang"]
 
         classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px,color:#333
         classDef focus fill:#d4e6f1,stroke:#2874a6,stroke-width:2px,color:#000
         classDef solution fill:#d5f5e3,stroke:#1e8449,stroke-width:1px,color:#000
         classDef result fill:#ebdef0,stroke:#8e44ad,stroke-width:2px,color:#000
 
-        class B,F focus
-        class C,D,E solution
-        class G result
+        class B,E focus
+        class C solution
+        class D,F result
     ```
 
--   **Structured Outputs:** Dangeroo Mode instructs modes to return the *concise* result summary reliably, and explicitly requires JSON format for the *detailed reporting task* (when `DEBUG_MODE` is on) via templates.
+*   **Structured Outputs:** Boomerang mandates **from the specialized modes** that `attempt_completion` results use specific JSON keys (`status`, `core_outcome`, `deliverables`, `content_for_mem0`, `metadata_for_mem0`, `conflict_flag`). Boomerang also uses JSON templates when orchestrating the **secondary, detailed reporting task** (if `DEBUG_MODE` is on) involving the original mode and `RooLogger`. This ensures results are consistently structured for reliable parsing, workflow decisions, memory storage, and logging.
     ```mermaid
     flowchart LR
-        A["Need for Reliable Data"] --> B["Dangeroo Mode Uses Templates"]
+        A["Need for Reliable Data Flow"] --> B["Boomerang Mandates Structure (via new_task instructions)"]
 
-        B --> C["Concise Summary\n(from attempt_completion)"]
-        B --"If DEBUG_MODE=TRUE"--> D["Detailed JSON Report\n(from Reporting Task)"]
+        B --> C["Mode Returns Structured attempt_completion Result"]
+        B --"If DEBUG_MODE=TRUE\n(Secondary Task)"--> D["Mode Fills JSON Template\nfor Detailed Reporting"]
 
 
-        C --> F["Input for Immediate\nWorkflow Decision (Step E)"]
-        D --> G["Input for Logging\n& Deep Analysis"]
+        C --> F["Input for Immediate Workflow Decision & Mem0 Storage"]
+        D --> G["Input for Logging (via RooLogger)\n& Deep Analysis"]
 
         classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px,color:#333
         classDef focus fill:#d4e6f1,stroke:#2874a6,stroke-width:2px,color:#000
@@ -469,7 +516,8 @@ Dangeroo Mode employs several techniques to improve the quality and reliability 
         class B focus
         class C,D format
     ```
-**Important Note:** Specialized modes focus on their primary task and concise reporting (including conflict flags). They only perform detailed template filling or extensive CoT when explicitly given a secondary reporting task by Dangeroo Mode.
+
+**Important Note:** Specialized modes focus on their primary atomic task and generating the required structured output (including concise results, memory content/metadata, and conflict flags). They only perform detailed template filling or extensive CoT when explicitly given a secondary reporting task by Dangeroo Mode.
 
 ## Explicit Guardrails & Failure Handling (Updated)
 
@@ -477,7 +525,7 @@ To address potentially critical issues arising from implicit assumptions, specif
 
 *   **Failure Reporting:** Modes **MUST** use `attempt_completion` to report failure if they encounter an insurmountable error during execution, providing clear details in a structured format (JSON).
 *   **Tool Safety Check:** Relevant modes **MUST** pause and request confirmation via `ask_followup_question` before executing potentially destructive/costly tool commands.
-*   **Environment Awareness:** Relevant modes **MUST** assume the environment matches `techContext.md` and report if required components are missing, rather than attempting setup.
+*   **Environment Awareness:** Modes report missing requirements rather than attempting setup.
 *   **Idempotency & Side Effects:** Relevant modes are encouraged to strive for idempotency and minimize side effects, noting risks in summaries/reports.
 *   **Best Practice Adherence & Conflict Flagging:** **(New/Enhanced)** Relevant modes (`Code`, `Architect`, `Tester`, `DevOps`, `Security`, `Writer`, `Requirements`) **MUST** consider referenced best practices (`.roo-docs/bestPractices.md`) alongside existing context. If a significant conflict arises, they **MUST** flag this conflict briefly in their concise `attempt_completion` summary to enable the orchestrator's review process.
 
@@ -517,6 +565,22 @@ JSON templates for successful task completion and issue reporting are stored in 
 ## `.roomodes.initialise` (Note)
 
 The `.roomodes.initialise` prompt mentioned previously serves as a conceptual starting point for bootstrapping the *initial content* of the `.roo-docs/` memory bank by analyzing an existing codebase. It would need to be adapted and executed (likely via Dangeroo Mode delegating analysis tasks) when starting work on a pre-existing project.
+
+## Updates 21/04/2025 - Shift to Orchestration & Enhanced Tooling
+
+This update represents a major architectural refactoring from a single comprehensive agent to a multi-agent orchestration system ("Dangeroo") coordinated by `Boomerang Mode`, incorporating enhanced tool integration and knowledge management strategies. Key changes include:
+
+*   **Core Architectural Shift: Multi-Agent Orchestration:** System redesigned around `Boomerang Mode` orchestrating specialized modes (`Code`, `Debug`, `Architect`, `Tester`, etc.). This improves modularity, focuses expertise, and helps manage context window limitations.
+*   **Dedicated Interface Modes:** Introduced `Mem0Interface` and `Context7Interface`. These modes act as simple, dedicated bridges, centralizing interactions with the Mem0 (memory) and Context7 (documentation) MCP servers, respectively. Boomerang delegates all calls to these external services through these interfaces.
+*   **Refined File System Handling:** `Memory Keeper` mode has been refocused and renamed to `FileSystemInterface`. Its role is strictly limited to literal file I/O operations (reading/writing config, templates, logs) as directed by Boomerang, separating it clearly from the semantic knowledge stored in Mem0.
+*   **LSP Integration (via BifrostMCP):** Real-time code intelligence is now integrated. The `Code` and `Debug` modes have been granted direct access to the LSP server via BifrostMCP and are instructed to use critical LSP calls (`get_diagnostics`, `find_references`, `get_hover_info`, `get_code_actions`) to enhance analysis, ensure code quality, and perform safer refactoring/cleanup.
+*   **Advanced Mem0 v2 Utilization:** `Boomerang` now orchestrates `Mem0Interface` to leverage powerful Mem0 v2 features. This includes using structured `filters` for targeted semantic searches and applying metadata options like `immutable` (for critical decisions/patterns) and `expiration_date` (for temporary context) during memory storage.
+*   **Orchestrated Memory Storage:** The process for storing knowledge is refined. Execution modes generate structured content (`content_for_mem0`) and rich metadata (`metadata_for_mem0`), which `Boomerang` then explicitly delegates to `Mem0Interface` for the actual `add_memory` operation. Emphasis is placed on generating comprehensive metadata (especially `components`) to enable effective filtering.
+*   **Enhanced Clarification Protocol ("Exhaust Tools First"):** The ambiguity resolution process mandates attempting internal resolution using all available tools (Memory search, Documentation lookup, LSP checks via `Code`/`Debug`, File reads via `FileSystemInterface`) *before* resorting to asking the user for clarification.
+*   **LSP-Powered Cleanup:** The mandatory cleanup/refactoring step within `Code` and `Debug` modes now explicitly requires using LSP `find_references` to verify code usage *before* suggesting removal or commenting out, enhancing safety.
+*   **Reflection Persistence:** Added an explicit step for `Boomerang` to orchestrate the storage of generated "Reflection" outputs (when errors or significant corrections occur) into Mem0 via `Mem0Interface`, tagged with `type: 'reflection'`.
+
+These changes aim to create a more robust, scalable, and intelligent system that effectively leverages specialized agents and advanced tooling (Memory, Docs, LSP) under strategic coordination.
 
 ## Updates 12/04/2025
 

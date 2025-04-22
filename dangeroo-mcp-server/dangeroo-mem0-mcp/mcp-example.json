@@ -3,12 +3,12 @@
     "mem0": {
       "command": "node",
       "args": [
-        "/path/to/dangeroo-mem0-mcp/build/index.js"
+        "build/index.js"
       ],
       "env": {
         "MEM0_MODE": "local",
         "MEM0_API_ENDPOINT": "http://localhost:8888",
-        "DEFAULT_USER_ID": "user123"
+        "DEFAULT_USER_ID": "user123" 
       },
       "disabled": false,
       "alwaysAllow": [
