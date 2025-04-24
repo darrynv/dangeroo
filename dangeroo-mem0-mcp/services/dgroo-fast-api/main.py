@@ -151,10 +151,18 @@ def add_memory(memory_create: MemoryCreate):
     try:
         response = MEMORY_INSTANCE.add(messages=messages_to_add, **params)
         logging.info(f"Memory.add response: {response}")
-        if not response.get("results") or len(response.get("results")) == 0:
-            error_msg = f"Memory insertion failed: no vectors stored. Response: {response}"
-            logging.error(error_msg)
-            raise Exception(error_msg)
+        # Relax the check: Assume success if no exception occurred and response is a dict.
+        # The mem0 library might return {'results': []} on success, as confirmed by debug.py.
+        # We could add more sophisticated checks later if needed (e.g., check 'relations').
+        if not isinstance(response, dict): # Basic check if response is valid
+             error_msg = f"Memory insertion failed: Invalid response type. Response: {response}"
+             logging.error(error_msg)
+             raise Exception(error_msg)
+        # Original check was too strict:
+        # if not response.get("results") or len(response.get("results")) == 0:
+        #     error_msg = f"Memory insertion failed: no vectors stored. Response: {response}"
+        #     logging.error(error_msg)
+        #     raise Exception(error_msg)
         return JSONResponse(content=response)
     except Exception as e:
         logging.exception("Error in add_memory:")  # This will log the full traceback

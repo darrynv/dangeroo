@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY main.py .
 
 # Create necessary directories
-RUN mkdir -p /app/data/history /app/data/chroma
+RUN mkdir -p /app/data/history
 
 # Expose the API port
 EXPOSE 8000
