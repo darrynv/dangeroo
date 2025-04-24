@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * MCP server for interacting with Mem0.ai cloud, local and memory storage.
- * Provides tools to add and search memories.
- * 
- * Supports three modes:
- * 1. Cloud mode: Uses Mem0's hosted API with MEM0_API_KEY
- * 2. Local API mode: Uses self-hosted Mem0 API endpoint
- * 3. Memory mode: Uses in-memory storage with OPENAI_API_KEY for embeddings
+ * MCP server for interacting with dgroo-fast-api or local in-memory storage.
+ * Provides tools to add, search, and delete memories.
+ *
+ * Supports two modes:
+ * 1. Local API mode: Uses the self-hosted dgroo-fast-api endpoint (DGROO_FAST_API_ENDPOINT)
+ * 2. Memory mode: Uses in-memory storage with OPENAI_API_KEY for embeddings
  */
 
 // Load environment variables from .env file if present
@@ -69,12 +68,10 @@ import {
 import { Memory } from "mem0ai/oss"; // For local in-memory storage
 import axios from 'axios'; // For HTTP requests to local API endpoint
 
-// Using dynamic import for cloud API to avoid TypeScript issues
-let MemoryClient: any = null;
+// Cloud client removed as it's deprecated
 
 // Storage mode types
 enum StorageMode {
-  CLOUD = 'cloud',
   LOCAL_API = 'local',
   IN_MEMORY = 'memory'
 }
@@ -209,25 +206,27 @@ class LocalApiClient {
 class Mem0MCPServer {
   private server: Server;
   private storageMode: StorageMode;
-  private localClient?: Memory;       // In-memory storage
-  private cloudClient?: any;          // Mem0 cloud API client
-  private localApiClient?: LocalApiClient; // Local REST API client
+  private localClient?: Memory;           // In-memory storage client
+  private localApiClient?: LocalApiClient; // dgroo-fast-api REST API client
   private isReady: boolean = false;
 
   constructor() {
     console.error("Initializing Dangeroo Mem0 MCP Server...");
     
-    // Determine storage mode from environment variable
-    const envMode = (process.env.MEM0_MODE || '').toLowerCase();
-    
-    // Set the storage mode based on the environment variable
-    if (envMode === StorageMode.LOCAL_API) {
+    // Determine storage mode based on environment variables
+    const dgrooApiEndpoint = process.env.DGROO_FAST_API_ENDPOINT;
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+
+    if (dgrooApiEndpoint) {
       this.storageMode = StorageMode.LOCAL_API;
-    } else if (envMode === StorageMode.IN_MEMORY) {
+      console.error("Detected DGROO_FAST_API_ENDPOINT, using Local API mode.");
+    } else if (openaiApiKey) {
       this.storageMode = StorageMode.IN_MEMORY;
+      console.error("Detected OPENAI_API_KEY (and no DGROO_FAST_API_ENDPOINT), using In-Memory mode.");
     } else {
-      // Default to cloud mode if not specified or invalid value
-      this.storageMode = StorageMode.CLOUD;
+      console.error("Error: Required environment variables not set.");
+      console.error("Please set either DGROO_FAST_API_ENDPOINT (for Local API mode) or OPENAI_API_KEY (for In-Memory mode).");
+      process.exit(1);
     }
     
     // Initialize MCP Server
@@ -280,10 +279,6 @@ class Mem0MCPServer {
     console.error(`Initializing client with storage mode: ${this.storageMode}`);
     
     switch (this.storageMode) {
-      case StorageMode.CLOUD:
-        this.initializeCloudClient();
-        break;
-        
       case StorageMode.LOCAL_API:
         this.initializeLocalApiClient();
         break;
@@ -293,70 +288,22 @@ class Mem0MCPServer {
         break;
         
       default:
-        console.error(`Unknown storage mode: ${this.storageMode}, falling back to cloud mode`);
-        this.initializeCloudClient();
-    }
-  }
-  
-  /**
-   * Initialize the cloud client with Mem0 API
-   */
-  private initializeCloudClient(): void {
-    const mem0ApiKey = process.env.MEM0_API_KEY;
-    
-    if (!mem0ApiKey) {
-      console.error("Error: MEM0_API_KEY is required for cloud storage mode");
-      process.exit(1);
-    }
-    
-    console.error("Using Mem0 cloud storage mode with MEM0_API_KEY");
-    
-    // Dynamic import for cloud client
-    import('mem0ai').then(module => {
-      try {
-        MemoryClient = module.default;
-        // Get organization and project IDs
-        const orgId = process.env.YOUR_ORG_ID || process.env.ORG_ID;
-        const projectId = process.env.YOUR_PROJECT_ID || process.env.PROJECT_ID;
-        
-        // Initialize with all available options
-        const clientOptions: any = { 
-          apiKey: mem0ApiKey,
-          // Disable debug logs in the client if possible
-          debug: false,
-          verbose: false,
-          silent: true
-        };
-        
-        // Add org and project IDs if available
-        if (orgId) clientOptions.org_id = orgId;
-        if (projectId) clientOptions.project_id = projectId;
-        
-        this.cloudClient = new MemoryClient(clientOptions);
-        console.error("Cloud client initialized successfully with options:", { 
-          hasApiKey: !!mem0ApiKey,
-          hasOrgId: !!orgId, 
-          hasProjectId: !!projectId 
-        });
-        this.isReady = true;
-      } catch (error) {
-        console.error("Error in cloud client initialization:", error);
+        // This case should not be reachable due to constructor logic
+        console.error(`Critical Error: Reached default case in initializeClient with mode ${this.storageMode}`);
         process.exit(1);
-      }
-    }).catch(error => {
-      console.error("Error importing Mem0 cloud client:", error);
-      process.exit(1);
-    });
+    }
   }
   
+  // initializeCloudClient removed as cloud mode is deprecated
   /**
    * Initialize the local API client
    */
   private initializeLocalApiClient(): void {
-    const apiEndpoint = process.env.MEM0_API_ENDPOINT;
+    const apiEndpoint = process.env.DGROO_FAST_API_ENDPOINT;
     
     if (!apiEndpoint) {
-      console.error("Error: MEM0_API_ENDPOINT is required for local API mode");
+      // This check is technically redundant due to constructor logic, but kept for safety
+      console.error("Error: DGROO_FAST_API_ENDPOINT is required for local API mode");
       process.exit(1);
     }
     
@@ -433,7 +380,7 @@ class Mem0MCPServer {
                 },
                 agentId: {
                   type: "string",
-                  description: "Optional agent ID to associate with the memory (for cloud API).",
+                  description: "Optional agent ID to associate with the memory.",
                 },
                 metadata: {
                   type: "object",
@@ -463,7 +410,7 @@ class Mem0MCPServer {
                 },
                 agentId: {
                   type: "string",
-                  description: "Optional agent ID to filter search (for cloud API).",
+                  description: "Optional agent ID to filter search.",
                 },
                 filters: {
                   type: "object",
@@ -471,7 +418,7 @@ class Mem0MCPServer {
                 },
                 threshold: {
                   type: "number",
-                  description: "Optional similarity threshold for results (for cloud API).",
+                  description: "Optional similarity threshold for results.", // Note: Threshold might be specific to implementation
                 },
               },
               required: ["query", "userId"],
@@ -497,7 +444,7 @@ class Mem0MCPServer {
                 },
                 agentId: {
                   type: "string",
-                  description: "Optional agent ID associated with the memory (for cloud API).",
+                  description: "Optional agent ID associated with the memory.",
                 },
               },
               required: ["memoryId", "userId"],
@@ -564,9 +511,6 @@ class Mem0MCPServer {
     
     try {
       switch (this.storageMode) {
-        case StorageMode.CLOUD:
-          return await this.handleCloudAddMemory(messages, userId, sessionId, agentId, metadata);
-          
         case StorageMode.LOCAL_API:
           return await this.handleLocalApiAddMemory(messages, userId, sessionId, agentId, metadata);
           
@@ -574,7 +518,8 @@ class Mem0MCPServer {
           return await this.handleInMemoryAddMemory(messages, userId, sessionId, metadata);
           
         default:
-          throw new McpError(ErrorCode.InternalError, `Unknown storage mode: ${this.storageMode}`);
+          // Should not be reachable
+          throw new McpError(ErrorCode.InternalError, `Invalid storage mode encountered in handleAddMemory: ${this.storageMode}`);
       }
     } catch (error: any) {
       console.error(`Error adding memory using ${this.storageMode} mode:`, error);
@@ -582,47 +527,7 @@ class Mem0MCPServer {
     }
   }
   
-  /**
-   * Add memory using cloud client
-   */
-  private async handleCloudAddMemory(
-    messages: Mem0Message[], 
-    userId: string, 
-    sessionId?: string, 
-    agentId?: string, 
-    metadata?: Record<string, any>
-  ): Promise<any> {
-    if (!this.cloudClient) {
-      throw new McpError(ErrorCode.InternalError, "Cloud client is not initialized");
-    }
-    
-    // Get organization and project IDs
-    const orgId = process.env.YOUR_ORG_ID || process.env.ORG_ID;
-    const projectId = process.env.YOUR_PROJECT_ID || process.env.PROJECT_ID;
-    
-    // Cloud API options - using snake_case
-    const options: any = {
-      user_id: userId,
-      version: "v2"
-    };
-    
-    // Add organization and project IDs if available
-    if (orgId) options.org_id = orgId;
-    if (projectId) options.project_id = projectId;
-    
-    if (sessionId) options.run_id = sessionId;
-    if (agentId) options.agent_id = agentId;
-    if (metadata) options.metadata = metadata;
-    
-    // API call
-    const result = await this.cloudClient.add(messages, options);
-    console.error("Memory added successfully using cloud API");
-    
-    return {
-      content: [{ type: "text", text: `Memory added successfully` }],
-    };
-  }
-  
+  // handleCloudAddMemory removed as cloud mode is deprecated
   /**
    * Add memory using local API client
    */
@@ -701,17 +606,17 @@ class Mem0MCPServer {
     
     try {
       switch (this.storageMode) {
-        case StorageMode.CLOUD:
-          return await this.handleCloudSearchMemory(query, userId, sessionId, agentId, filters, threshold);
-          
         case StorageMode.LOCAL_API:
+          // Note: Threshold might not be supported by dgroo-fast-api, passing it for now.
           return await this.handleLocalApiSearchMemory(query, userId, sessionId, agentId, filters);
           
         case StorageMode.IN_MEMORY:
+          // Note: Threshold is not directly supported by mem0ai oss Memory.search
           return await this.handleInMemorySearchMemory(query, userId, sessionId, filters);
           
         default:
-          throw new McpError(ErrorCode.InternalError, `Unknown storage mode: ${this.storageMode}`);
+           // Should not be reachable
+          throw new McpError(ErrorCode.InternalError, `Invalid storage mode encountered in handleSearchMemory: ${this.storageMode}`);
       }
     } catch (error: any) {
       console.error(`Error searching memories using ${this.storageMode} mode:`, error);
@@ -719,53 +624,7 @@ class Mem0MCPServer {
     }
   }
   
-  /**
-   * Search memory using cloud client
-   */
-  private async handleCloudSearchMemory(
-    query: string, 
-    userId: string, 
-    sessionId?: string, 
-    agentId?: string, 
-    filters?: Record<string, any>, 
-    threshold?: number
-  ): Promise<any> {
-    if (!this.cloudClient) {
-      throw new McpError(ErrorCode.InternalError, "Cloud client is not initialized");
-    }
-    
-    // Get organization and project IDs
-    const orgId = process.env.YOUR_ORG_ID || process.env.ORG_ID;
-    const projectId = process.env.YOUR_PROJECT_ID || process.env.PROJECT_ID;
-    
-    // Cloud API options
-    const options: any = {
-      user_id: userId,
-      version: "v2"
-    };
-    
-    // Add organization and project IDs if available
-    if (orgId) options.org_id = orgId;
-    if (projectId) options.project_id = projectId;
-    
-    // Map sessionId to run_id for Mem0 API compatibility
-    if (sessionId) options.run_id = sessionId;
-    if (agentId) options.agent_id = agentId;
-    if (filters) options.filters = filters;
-    if (threshold !== undefined) options.threshold = threshold;
-    
-    // API call
-    const results = await this.cloudClient.search(query, options);
-    
-    // Handle potential array or object result
-    const resultsArray = Array.isArray(results) ? results : [results];
-    console.error(`Found ${resultsArray.length} memories using cloud API`);
-    
-    return {
-      content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
-    };
-  }
-  
+  // handleCloudSearchMemory removed as cloud mode is deprecated
   /**
    * Search memory using local API client
    */
@@ -847,17 +706,17 @@ class Mem0MCPServer {
     
     try {
       switch (this.storageMode) {
-        case StorageMode.CLOUD:
-          return await this.handleCloudDeleteMemory(memoryId, userId, sessionId, agentId);
-          
         case StorageMode.LOCAL_API:
-          return await this.handleLocalApiDeleteMemory(memoryId, userId);
+          // Pass userId, sessionId, agentId if the dgroo-fast-api delete endpoint uses them for authorization/filtering
+          return await this.handleLocalApiDeleteMemory(memoryId, userId, sessionId, agentId);
           
         case StorageMode.IN_MEMORY:
+          // In-memory delete likely only needs memoryId
           return await this.handleInMemoryDeleteMemory(memoryId);
           
         default:
-          throw new McpError(ErrorCode.InternalError, `Unknown storage mode: ${this.storageMode}`);
+           // Should not be reachable
+          throw new McpError(ErrorCode.InternalError, `Invalid storage mode encountered in handleDeleteMemory: ${this.storageMode}`);
       }
     } catch (error: any) {
       console.error(`Error deleting memory using ${this.storageMode} mode:`, error);
@@ -865,59 +724,25 @@ class Mem0MCPServer {
     }
   }
   
+  // handleCloudDeleteMemory removed as cloud mode is deprecated
   /**
-   * Delete memory using cloud client
-   */
-  private async handleCloudDeleteMemory(
-    memoryId: string, 
-    userId: string, 
-    sessionId?: string, 
-    agentId?: string
-  ): Promise<any> {
-    if (!this.cloudClient) {
-      throw new McpError(ErrorCode.InternalError, "Cloud client is not initialized");
-    }
-    
-    // Get organization and project IDs
-    const orgId = process.env.YOUR_ORG_ID || process.env.ORG_ID;
-    const projectId = process.env.YOUR_PROJECT_ID || process.env.PROJECT_ID;
-    
-    // Cloud API options - using snake_case
-    const options: any = {
-      user_id: userId,
-      version: "v2"
-    };
-    
-    // Add organization and project IDs if available
-    if (orgId) options.org_id = orgId;
-    if (projectId) options.project_id = projectId;
-    
-    // Map sessionId to run_id for Mem0 API compatibility
-    if (sessionId) options.run_id = sessionId;
-    if (agentId) options.agent_id = agentId;
-    
-    // API call - pass memoryId as first parameter and options as second
-    await this.cloudClient.delete(memoryId, options);
-    console.error(`Memory ${memoryId} deleted successfully using cloud API`);
-    
-    return {
-      content: [{ type: "text", text: `Memory ${memoryId} deleted successfully` }],
-    };
-  }
-  
-  /**
-   * Delete memory using local API client
+   * Delete memory using local API client (dgroo-fast-api)
    */
   private async handleLocalApiDeleteMemory(
-    memoryId: string, 
-    userId: string
+    memoryId: string,
+    userId: string,
+    sessionId?: string,
+    agentId?: string
   ): Promise<any> {
     if (!this.localApiClient) {
       throw new McpError(ErrorCode.InternalError, "Local API client is not initialized");
     }
     
-    // API call
-    await this.localApiClient.delete(memoryId, { userId });
+    // Pass relevant identifiers if needed by the API endpoint
+    const options = { userId, sessionId, agentId };
+    
+    // API call - adjust parameters based on dgroo-fast-api requirements
+    await this.localApiClient.delete(memoryId, options);
     console.error(`Memory ${memoryId} deleted successfully using local API`);
     
     return {
@@ -946,7 +771,7 @@ class Mem0MCPServer {
    * Starts the MCP server.
    */
   public async start(): Promise<void> {
-    console.error(`Starting Mem0 MCP Server in ${this.storageMode} mode...`);
+    console.error(`Starting Dangeroo Mem0 MCP Server in ${this.storageMode} mode...`);
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     console.error("Mem0 MCP Server is running.");
