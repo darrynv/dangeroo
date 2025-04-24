@@ -33,8 +33,8 @@ if not OPENAI_API_KEY:
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/data/history/history.db")
 
 DEFAULT_CONFIG = {
-    #"version": "v1.1",  # Deprecated, use v2
-    "version": "v2",
+    "version": "v1.1",  # Deprecated, use v2
+    #"version": "v2",
     
     "vector_store": {
         "provider": "qdrant",
