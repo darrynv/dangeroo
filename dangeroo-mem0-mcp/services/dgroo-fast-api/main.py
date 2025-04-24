@@ -1,25 +1,18 @@
 import os
 import datetime
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List, Any, Dict
 from mem0 import Memory, AsyncMemory
 from dotenv import load_dotenv
 from qdrant_client.http.models import CollectionInfo # Add this import
-
 import logging
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Load environment variables
 load_dotenv()
-
-# ChromaDB configuration
-#CHROMA_HOST = os.environ.get("CHROMA_HOST", "chroma")
-#CHROMA_PORT = os.environ.get("CHROMA_PORT", "8000")
-#CHROMA_COLLECTION_NAME = os.environ.get("CHROMA_COLLECTION_NAME", "memories")
-#CHROMA_PATH = os.environ.get("CHROMA_PATH", "/app/data/chroma")
 
 QDRANT_HOST = os.environ.get("QDRANT_HOST", "qdrant")
 QDRANT_PORT = os.environ.get("QDRANT_PORT", "6333")
@@ -40,7 +33,9 @@ if not OPENAI_API_KEY:
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/data/history/history.db")
 
 DEFAULT_CONFIG = {
-    "version": "v1.1",
+    #"version": "v1.1",  # Deprecated, use v2
+    "version": "v2",
+    
     "vector_store": {
         "provider": "qdrant",
         "config": {
@@ -53,12 +48,6 @@ DEFAULT_CONFIG = {
             "api_key": None,
             "on_disk": QDRANT_ONDISK
         }
- #       "provider": "chroma",
- #       "config": {
- #           "host": CHROMA_HOST,
- #           "port": int(CHROMA_PORT),
- #           "collection_name": CHROMA_COLLECTION_NAME,
-#           "persist_directory": CHROMA_PATH,
     },
     "graph_store": {
         "provider": "neo4j",
@@ -169,37 +158,59 @@ def add_memory(memory_create: MemoryCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/memories", summary="Get memories")
-def get_all_memories(
-    user_id: Optional[str] = None,
-    run_id: Optional[str] = None,
-    agent_id: Optional[str] = None,
+@app.get("/memories", summary="Get one or multiple memories")
+def retrieve_memories(
+    user_id: Optional[str] = Query(None, description="Filter memories by user ID."),
+    agent_id: Optional[str] = Query(None, description="Filter memories by agent ID."),
+    run_id: Optional[str] = Query(None, description="Filter memories by run ID."),
+    memory_id: Optional[str] = Query(None, description="Retrieve a specific memory by its ID. Takes precedence over other filters."),
 ):
-    """Retrieve stored memories."""
+    """
+    Retrieve stored memories.
+
+    - If `memory_id` is provided, retrieves a single specific memory by its ID.
+      Any other filter parameters (`user_id`, `agent_id`, `run_id`) will be ignored in this case.
+    - Otherwise, retrieves a list of memories filtered by the provided
+      `user_id`, `agent_id`, or `run_id`.
+    - At least one identifier (`memory_id`, `user_id`, `agent_id`, `run_id`)
+      must be provided.
+    """
     if not MEMORY_INSTANCE:
         raise HTTPException(status_code=500, detail="Memory instance not initialized")
-        
-    if not any([user_id, run_id, agent_id]):
-        raise HTTPException(status_code=400, detail="At least one identifier is required.")
-    try:
-        params = {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None}
-        return MEMORY_INSTANCE.get_all(**params)
-    except Exception as e:
-        logging.exception("Error in get_all_memories:")
-        raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.get("/memories/{memory_id}", summary="Get a memory")
-def get_memory(memory_id: str):
-    """Retrieve a specific memory by ID."""
-    if not MEMORY_INSTANCE:
-        raise HTTPException(status_code=500, detail="Memory instance not initialized")
-        
     try:
-        return MEMORY_INSTANCE.get(memory_id)
+        if memory_id:
+            # --- Get Single Memory Logic ---
+            logging.info(f"Attempting to retrieve single memory with ID: {memory_id}")
+            memory = MEMORY_INSTANCE.get(memory_id=memory_id)
+            # You might want to check if 'memory' is None or an empty dict if the ID wasn't found
+            # depending on how mem0.get behaves for non-existent IDs.
+            # Example check (adjust based on actual mem0 behavior):
+            if not memory: # Assuming get returns None or empty dict for not found
+                 raise HTTPException(status_code=404, detail=f"Memory with ID '{memory_id}' not found.")
+            logging.info(f"Retrieved single memory result: {memory}")
+            return memory # Return the single memory dict/object
+        else:
+            # --- Get Multiple Memories Logic ---
+            if not any([user_id, agent_id, run_id]):
+                raise HTTPException(
+                    status_code=400,
+                    detail="At least one identifier (user_id, agent_id, run_id) is required when memory_id is not provided."
+                )
+
+            params = {k: v for k, v in {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}.items() if v is not None}
+            logging.info(f"Attempting to retrieve multiple memories with filters: {params}")
+            memories = MEMORY_INSTANCE.get_all(**params)
+            logging.info(f"Retrieved multiple memories result: {memories}")
+            return memories # Return the list/structure returned by get_all
+
+    except HTTPException as http_exc:
+         # Re-raise specific HTTP exceptions (like the 404 or 400 above)
+         raise http_exc
     except Exception as e:
-        logging.exception("Error in get_memory:")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log the full traceback for unexpected errors
+        logging.exception(f"Error retrieving memories (memory_id={memory_id}, user_id={user_id}, agent_id={agent_id}, run_id={run_id}):")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
 
 @app.post("/search", summary="Search memories")
@@ -207,7 +218,14 @@ def search_memories(search_req: SearchRequest):
     """Search for memories based on a query."""
     if not MEMORY_INSTANCE:
         raise HTTPException(status_code=500, detail="Memory instance not initialized")
-        
+    # --- ADD THIS EXPLICIT CHECK ---
+    if not any([search_req.user_id, search_req.agent_id, search_req.run_id]):
+        # Use 422 Unprocessable Entity or 400 Bad Request for client input errors
+        raise HTTPException(
+            status_code=422,
+            detail="Validation Error: At least one identifier (user_id, agent_id, or run_id) must be provided for searching."
+        )
+    # --- END OF ADDED CHECK ---    
     try:
         params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
         return MEMORY_INSTANCE.search(query=search_req.query, **params)

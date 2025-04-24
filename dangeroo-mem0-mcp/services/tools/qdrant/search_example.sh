@@ -9,13 +9,33 @@ curl -X POST "http://localhost:8888/search" \
 jq . results.json
 
 # Semantic search for retirement planning
-curl -X POST "http://localhost:8888/search" \
+curl -X POST "http://localhost:8888/v1/search" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "how should I invest for retirement with moderate risk?",
     "user_id": "financial_client_303"
   }' > results.json
 jq . results.json
+
+
+# Semantic search for retirement planning
+curl -X POST "http://localhost:8888/v1/search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Python module not found error",
+  "userId": "rooCode_mcp",
+  "filters": {
+    "AND": [
+      {"type": "bug_analysis"},
+      {"category": "module_reference_error"},
+      {"language": "python"},
+      {"source": "manual_test_entry"}
+    ]
+  },
+  "threshold": 0.7
+  }' > results.json
+jq . results.json
+
 
 # Conceptual search for language learning difficulties
 curl -X POST "http://localhost:8888/search" \
