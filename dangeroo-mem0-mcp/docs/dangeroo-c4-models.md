@@ -42,7 +42,7 @@ C4Container
         
         Container_Boundary(backendServices, "Memory Backend Services") {
             Container(fastApi, "FastAPI Service", "Python", "Provides memory API endpoints")
-            ContainerDb(chroma, "ChromaDB", "Vector Database", "Stores vector embeddings for semantic search")
+            ContainerDb(qdrant, "Qdrant", "Vector Database", "Stores vector embeddings for semantic search")
             ContainerDb(neo4j, "Neo4j", "Graph Database", "Stores entity relationships")
             ContainerDb(sqlite, "SQLite", "History Database", "Tracks memory changes")
         }
@@ -57,7 +57,7 @@ C4Container
     Rel(callingProcessSystem, mcpNodeServer, "Makes tool calls to", "MCP Protocol")
     Rel(mcpNodeServer, fastApi, "Sends requests to", "HTTP/REST")
     
-    Rel(fastApi, chroma, "Stores and queries vectors in", "HTTP")
+    Rel(fastApi, qdrant, "Stores and queries vectors in", "HTTP/gRPC")
     Rel(fastApi, neo4j, "Stores and queries graphs in", "Bolt protocol")
     Rel(fastApi, sqlite, "Logs history in", "SQLite connection")
     
@@ -110,14 +110,14 @@ C4Component
     Container_Boundary(fastApiService, "FastAPI Service") {
         Component(apiRoutes, "API Routes", "Python", "REST API endpoints")
         Component(memoryManager, "Memory Manager", "Python", "Core memory operations")
-        Component(vectorStore, "Vector Store Client", "Python", "ChromaDB integration")
+        Component(vectorStore, "Vector Store Client", "Python", "Qdrant integration")
         Component(graphStore, "Graph Store Client", "Python", "Neo4j integration")
         Component(embedder, "Embedding Client", "Python", "Handles embeddings")
         Component(llmClient, "LLM Client", "Python", "Handles LLM operations")
         Component(historyTracker, "History Tracker", "Python", "Tracks memory changes")
     }
     
-    ContainerDb(chroma, "ChromaDB", "Vector Database")
+    ContainerDb(qdrant, "Qdrant", "Vector Database")
     ContainerDb(neo4j, "Neo4j", "Graph Database")
     ContainerDb(sqlite, "SQLite", "History Database")
     
@@ -130,7 +130,7 @@ C4Component
     Rel(memoryManager, llmClient, "Uses for LLM operations")
     Rel(memoryManager, historyTracker, "Uses for history tracking")
     
-    Rel(vectorStore, chroma, "Stores and queries vectors in", "HTTP")
+    Rel(vectorStore, qdrant, "Stores and queries points in", "HTTP/gRPC")
     Rel(graphStore, neo4j, "Stores and queries graphs in", "Bolt protocol")
     Rel(historyTracker, sqlite, "Logs history in", "SQLite connection")
     
@@ -300,37 +300,37 @@ classDiagram
 
 ## Data Model Diagrams
 
-### ChromaDB Collection Data Model
+### Qdrant Collection Data Model
 
 ```mermaid
 classDiagram
-    class ChromaCollection {
-        +add(embeddings, metadatas, documents, ids)
-        +query(query_embeddings, n_results, where)
-        +get(ids, where)
-        +delete(ids, where)
-        +count()
+    class QdrantClient {
+        +upsert(collection_name, points, wait)
+        +search(collection_name, query_vector, query_filter, limit)
+        +retrieve(collection_name, ids, with_payload, with_vector)
+        +delete(collection_name, points_selector, wait)
+        +count(collection_name, count_filter, exact)
     }
     
-    class MemoryDocument {
-        +id: str
-        +embedding: List[float]
-        +document: str
-        +metadata: Dict
+    class PointStruct {
+        +id: Union[str, int]
+        +vector: Union[List[float], Dict[str, List[float]]]
+        +payload: Optional[Dict[str, Any]]
     }
     
-    class MemoryMetadata {
+    class MemoryPayload {
         +memory_id: str
         +user_id: str
         +run_id: Optional[str]
         +agent_id: Optional[str]
+        +document: str
         +custom_metadata: Optional[Dict]
         +created_at: datetime
         +updated_at: datetime
     }
     
-    ChromaCollection -- MemoryDocument : contains
-    MemoryDocument -- MemoryMetadata : has
+    QdrantClient -- PointStruct : uses
+    PointStruct -- MemoryPayload : has payload
 ```
 
 ### Neo4j Graph Data Model

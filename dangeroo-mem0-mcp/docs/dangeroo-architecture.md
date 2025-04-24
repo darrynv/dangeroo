@@ -1,6 +1,6 @@
 # Dangeroo Mem0 MCP Server Architecture
 
-This document provides a detailed overview of the Dangeroo Mem0 MCP Server architecture, focusing on the relationship between FastAPI, ChromaDB, and Neo4j services.
+This document provides a detailed overview of the Dangeroo Mem0 MCP Server architecture, focusing on the relationship between FastAPI, Qdrant, and Neo4j services.
 
 ## System Architecture
 
@@ -9,7 +9,7 @@ graph TB
     CallingProcess["Calling Process"]
     MCP["MCP Server (Node.js)"]
     FastAPI["FastAPI Service"]
-    Chroma["ChromaDB (Vector DB)"]
+    Qdrant["Qdrant (Vector DB)"]
     Neo4j["Neo4j (Graph DB)"]
     History["SQLite (History DB)"]
     OpenAI["OpenAI API"]
@@ -18,7 +18,7 @@ graph TB
 
     CallingProcess -->|Tool calls| MCP
     MCP -->|REST API| FastAPI
-    FastAPI -->|Vector Queries| Chroma
+    FastAPI -->|Vector Queries| Qdrant
     FastAPI -->|Graph Queries| Neo4j
     FastAPI -->|History Tracking| History
     FastAPI -->|Embeddings & LLM| OpenAI
@@ -32,7 +32,7 @@ graph TB
 
     class CallingProcess aiComponent;
     class MCP,FastAPI apiComponent;
-    class Chroma,Neo4j,History dbComponent;
+    class Qdrant,Neo4j,History dbComponent;
     class OpenTelemetry,Zipkin monitoringComponent;
     class OpenAI aiComponent;
 ```
@@ -54,7 +54,7 @@ C4Container
         
         Container_Boundary(backend, "FastAPI Backend") {
             Container(fastApi, "FastAPI Service", "Python", "Provides memory API endpoints")
-            ContainerDb(chroma, "ChromaDB", "Vector Database", "Stores vector embeddings for semantic search")
+            ContainerDb(qdrant, "Qdrant", "Vector Database", "Stores vector embeddings for semantic search")
             ContainerDb(neo4j, "Neo4j", "Graph Database", "Stores entity relationships")
             ContainerDb(sqlite, "SQLite", "History Database", "Tracks memory changes")
         }
@@ -70,7 +70,7 @@ C4Container
     Rel(user, callingProcess, "Interacts with")
     Rel(callingProcess, mcp, "Makes tool calls")
     Rel(mcp, fastApi, "REST API calls")
-    Rel(fastApi, chroma, "Vector queries")
+    Rel(fastApi, qdrant, "Vector queries")
     Rel(fastApi, neo4j, "Graph queries")
     Rel(fastApi, sqlite, "Tracks history")
     Rel(fastApi, openai, "Embedding generation and LLM calls")
@@ -102,7 +102,7 @@ graph TD
     end
 
     subgraph Databases
-        ChromaDB["ChromaDB\n(memories collection)"]
+        QdrantDB["Qdrant\n(memories collection)"]
         Neo4jDB["Neo4j\n(entities & relationships)"]
         HistoryDB["SQLite\n(history.db)"]
     end
@@ -129,7 +129,7 @@ graph TD
     MemoryModule -->|Embedding generation| EmbeddingClient
     MemoryModule -->|Fact extraction| LLMClient
     
-    VectorStore -->|Stores embeddings| ChromaDB
+    VectorStore -->|Stores points| QdrantDB
     GraphStore -->|Stores relationships| Neo4jDB
     MemoryModule -->|Logs changes| HistoryDB
     
@@ -149,7 +149,7 @@ sequenceDiagram
     participant API as FastAPI Service
     participant Mem0 as Memory Module
     participant OpenAI as OpenAI API
-    participant Chroma as ChromaDB
+    participant Qdrant as Qdrant
     participant Neo4j as Neo4j
     participant History as History DB
 
@@ -164,8 +164,8 @@ sequenceDiagram
     OpenAI-->>Mem0: Return extracted facts
     
     par Store data in databases
-        Mem0->>Chroma: Store vector embeddings
-        Chroma-->>Mem0: Confirm storage
+        Mem0->>Qdrant: Store vector points
+        Qdrant-->>Mem0: Confirm storage
         
         Mem0->>Neo4j: Store entity relationships
         Neo4j-->>Mem0: Confirm storage
@@ -188,7 +188,7 @@ sequenceDiagram
     participant API as FastAPI Service
     participant Mem0 as Memory Module
     participant OpenAI as OpenAI API
-    participant Chroma as ChromaDB
+    participant Qdrant as Qdrant
     participant Neo4j as Neo4j
 
     CallingProcess->>MCP: search_memory tool call
@@ -199,8 +199,8 @@ sequenceDiagram
     OpenAI-->>Mem0: Return embeddings
     
     par Query databases
-        Mem0->>Chroma: Semantic search
-        Chroma-->>Mem0: Return relevant vectors
+        Mem0->>Qdrant: Semantic search
+        Qdrant-->>Mem0: Return relevant points
         
         Mem0->>Neo4j: Query related entities
         Neo4j-->>Mem0: Return graph relationships
@@ -215,28 +215,28 @@ sequenceDiagram
 
 ## Data Model
 
-### ChromaDB Collection Schema
+### Qdrant Collection Schema
 
 ```mermaid
 classDiagram
-    class MemoriesCollection {
-        +String id
-        +Vector embedding
-        +Map metadata
-        +String document
+    class QdrantPoint {
+        +String/Int id
+        +Vector vector
+        +Map payload
     }
 
-    class Metadata {
+    class Payload {
         +String memory_id
         +String user_id
         +String? run_id
         +String? agent_id
+        +String document
         +Map? custom_metadata
         +Timestamp created_at
         +Timestamp updated_at
     }
 
-    MemoriesCollection --> Metadata
+    QdrantPoint --> Payload : contains
 ```
 
 ### Neo4j Graph Schema
@@ -286,7 +286,7 @@ flowchart TD
     H --> I[Extract Facts]
     
     I --> J{Process Storage}
-    J --> |Vector Store| K[Store in ChromaDB]
+    J --> |Vector Store| K[Store in Qdrant]
     J --> |Graph Store| L[Store in Neo4j]
     J --> |History| M[Log in SQLite]
     
@@ -310,7 +310,7 @@ flowchart TD
     G --> H[Generate Query Embeddings]
     
     H --> I{Parallel Query}
-    I --> |Vector Search| J[Query ChromaDB]
+    I --> |Vector Search| J[Query Qdrant]
     I --> |Graph Query| K[Query Neo4j]
     
     J & K --> L[Combine & Rank Results]
@@ -326,7 +326,7 @@ flowchart TD
 graph TB
     subgraph "Docker Network: dangeroo_network"
         FastAPI["dgroo-fast-api<br>Port: 8888:8000"]
-        Chroma["chroma<br>Port: 8000:8000"]
+        Qdrant["qdrant<br>Ports: 6333:6333, 6334:6334"]
         Neo4j["neo4j<br>Ports: 7474:7474, 7687:7687"]
         OTEL["otel-collector<br>Ports: 4317, 4318, 13133"]
         Zipkin["zipkin<br>Port: 9411:9411"]
@@ -343,7 +343,7 @@ graph TB
     
     User -->|"Calling Process"| MCP
     MCP -->|"http://localhost:8888"| FastAPI
-    FastAPI -->|"http://chroma:8000"| Chroma
+    FastAPI -->|"http://qdrant:6333"| Qdrant
     FastAPI -->|"bolt://neo4j:7687"| Neo4j
     FastAPI -->|"API calls"| OpenAI
     FastAPI -->|"Telemetry"| OTEL
@@ -353,7 +353,7 @@ graph TB
     classDef external fill:#f8cecc,stroke:#b85450,stroke-width:2px;
     classDef host fill:#dae8fc,stroke:#6c8ebf,stroke-width:2px;
     
-    class FastAPI,Chroma,Neo4j,OTEL,Zipkin container;
+    class FastAPI,Qdrant,Neo4j,OTEL,Zipkin container;
     class OpenAI external;
     class User,MCP host;
 ```
@@ -364,27 +364,26 @@ graph TB
 graph LR
     subgraph "Host File System"
         DataDir["./data/"]
-        ChromaDir["./data/chroma/"]
+        QdrantDir["./data/qdrant/"]
         HistoryDir["./data/history/"]
         Neo4jDir["./data/neo4j/"]
         FastAPIDir["./dgroo-fast-api/"]
     end
     
     subgraph "Docker Containers"
-        ChromaContainer["ChromaDB Container"]
+        QdrantContainer["Qdrant Container"]
         FastAPIContainer["FastAPI Container"]
         Neo4jContainer["Neo4j Container"]
     end
     
-    ChromaDir -->|"Volume Mount<br>./data/chroma:/chroma/chroma"| ChromaContainer
+    QdrantDir -->|"Volume Mount<br>./data/qdrant:/qdrant/storage"| QdrantContainer
     HistoryDir -->|"Volume Mount<br>./data/history:/app/data/history"| FastAPIContainer
-    ChromaDir -->|"Volume Mount<br>./data/chroma:/app/data/chroma"| FastAPIContainer
     FastAPIDir -->|"Volume Mount<br>./dgroo-fast-api:/app"| FastAPIContainer
     Neo4jDir -->|"Volume Mount<br>./data/neo4j:/data"| Neo4jContainer
     
     classDef host fill:#f5f5f5,stroke:#666,stroke-width:1px;
     classDef container fill:#d5e8d4,stroke:#82b366,stroke-width:2px;
     
-    class DataDir,ChromaDir,HistoryDir,Neo4jDir,FastAPIDir host;
-    class ChromaContainer,FastAPIContainer,Neo4jContainer container;
+    class DataDir,QdrantDir,HistoryDir,Neo4jDir,FastAPIDir host;
+    class QdrantContainer,FastAPIContainer,Neo4jContainer container;
 ```

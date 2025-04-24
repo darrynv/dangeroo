@@ -1,6 +1,6 @@
 # Dangeroo MCP Server Technical Documentation
 
-This document provides detailed technical information about the Dangeroo MCP Server implementation, focusing on how it integrates with the FastAPI service, ChromaDB, and Neo4j.
+This document provides detailed technical information about the Dangeroo MCP Server implementation, focusing on how it integrates with the FastAPI service, Qdrant, and Neo4j.
 
 ## MCP Server Implementation
 
@@ -135,7 +135,7 @@ The MCP Server is configured through the `mcp-example.json` file:
       "env": {
         "MEM0_MODE": "local",
         "MEM0_API_ENDPOINT": "http://localhost:8888",
-        "DEFAULT_USER_ID": "user123" 
+        "DEFAULT_USER_ID": "user123"
       },
       "disabled": false,
       "alwaysAllow": [
@@ -192,11 +192,11 @@ flowchart TD
     Memory -->|"Extract facts"| OpenAILLM[OpenAI LLM]
     OpenAILLM -->|"Return facts"| Memory
     
-    Memory -->|"Store vector"| Chroma[ChromaDB]
+    Memory -->|"Store point"| Qdrant[Qdrant]
     Memory -->|"Store relationships"| Neo4j[Neo4j]
     Memory -->|"Log history"| SQLite[SQLite DB]
     
-    Chroma & Neo4j & SQLite -->|"Success"| Memory
+    Qdrant & Neo4j & SQLite -->|"Success"| Memory
     Memory -->|"Success + ID"| FastAPI
     FastAPI -->|"Response"| MCP
     MCP -->|"Tool response"| CallingProcess
@@ -207,7 +207,7 @@ flowchart TD
     
     class CallingProcess,OpenAI,OpenAILLM ai;
     class MCP,FastAPI,Memory api;
-    class Chroma,Neo4j,SQLite db;
+    class Qdrant,Neo4j,SQLite db;
 ```
 
 ### Search Memory Data Flow
@@ -222,10 +222,10 @@ flowchart TD
     Memory -->|"Generate query embedding"| OpenAI[OpenAI API]
     OpenAI -->|"Return embedding"| Memory
     
-    Memory -->|"Semantic search"| Chroma[ChromaDB]
+    Memory -->|"Semantic search"| Qdrant[Qdrant]
     Memory -->|"Entity search"| Neo4j[Neo4j]
     
-    Chroma -->|"Vector matches"| Memory
+    Qdrant -->|"Point matches"| Memory
     Neo4j -->|"Entity matches"| Memory
     
     Memory -->|"Combined results"| FastAPI
@@ -238,33 +238,33 @@ flowchart TD
     
     class CallingProcess,OpenAI ai;
     class MCP,FastAPI,Memory api;
-    class Chroma,Neo4j db;
+    class Qdrant,Neo4j db;
 ```
 
-## ChromaDB Collection Structure
+## Qdrant Collection Structure
 
-ChromaDB stores memory vectors in a collection called "memories":
+Qdrant stores memory vectors as points within a collection (default: "memories"):
 
 ```mermaid
 erDiagram
-    MEMORIES {
-        string id "Unique memory ID"
-        vector embedding "Text embedding vector"
-        string document "Original text content"
-        json metadata "Associated metadata"
+    POINTS {
+        string_or_int id PK "Unique point ID"
+        vector vector "Text embedding vector"
+        json payload "Associated metadata (payload)"
     }
     
-    METADATA {
+    PAYLOAD {
         string memory_id "Memory identifier"
         string user_id "User identifier"
         string run_id "Optional session identifier"
         string agent_id "Optional agent identifier"
+        string document "Original text content"
         json custom_metadata "Additional metadata"
         timestamp created_at "Creation timestamp"
         timestamp updated_at "Last update timestamp"
     }
     
-    MEMORIES ||--|| METADATA : contains
+    POINTS ||--|| PAYLOAD : contains
 ```
 
 ## Neo4j Graph Model
@@ -323,7 +323,7 @@ graph TB
     end
     
     subgraph "Storage"
-        ChromaDB[(ChromaDB)]
+        QdrantDB[(Qdrant)]
         Neo4jDB[(Neo4j)]
         HistoryDB[(SQLite)]
     end
@@ -339,7 +339,7 @@ graph TB
     Routes -->|"Process"| FastAPI
     FastAPI -->|"Delegate"| MemoryModule
     
-    MemoryModule -->|"Vector Operations"| ChromaDB
+    MemoryModule -->|"Vector Operations"| QdrantDB
     MemoryModule -->|"Graph Operations"| Neo4jDB
     MemoryModule -->|"History Tracking"| HistoryDB
     MemoryModule -->|"Embeddings & LLM"| OpenAI
@@ -352,7 +352,7 @@ graph TB
     class CallingProcess,OpenAI ai;
     class MCP,LocalAPI,MCPTools server;
     class FastAPI,MemoryModule,Routes api;
-    class ChromaDB,Neo4jDB,HistoryDB db;
+    class QdrantDB,Neo4jDB,HistoryDB db;
 ```
 
 ## Environment Configuration
@@ -367,10 +367,11 @@ The system relies on environment variables for configuration:
 - `DEFAULT_USER_ID`: Default user ID for memory operations
 
 ### FastAPI Service Environment Variables
-- `CHROMA_HOST`: ChromaDB host (default: `chroma`)
-- `CHROMA_PORT`: ChromaDB port (default: `8000`)
-- `CHROMA_COLLECTION_NAME`: ChromaDB collection name (default: `memories`)
-- `CHROMA_PATH`: ChromaDB storage path (default: `/app/data/chroma`)
+- `QDRANT_HOST`: Qdrant host (default: `qdrant`)
+- `QDRANT_PORT`: Qdrant gRPC port (default: `6334`)
+- `QDRANT_COLLECTION_NAME`: Qdrant collection name (default: `memories`)
+- `QDRANT_PATH`: Qdrant storage path (default: `/qdrant/storage`)
+- `QDRANT_ONDISK`: Whether Qdrant uses on-disk storage (default: `False`)
 - `NEO4J_URI`: Neo4j URI (default: `bolt://neo4j:7687`)
 - `NEO4J_USERNAME`: Neo4j username (default: `neo4j`)
 - `NEO4J_PASSWORD`: Neo4j password (default: `mem0graph`)
