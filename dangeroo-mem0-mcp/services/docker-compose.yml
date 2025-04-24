@@ -17,54 +17,40 @@ services:
       - ./data/chroma:/app/data/chroma
       - ./dgroo-fast-api:/app
     depends_on:
-      - chroma
-      - neo4j
+      neo4j:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
     environment:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
       # These connect to the service name 'chroma' on its internal port
-      - CHROMA_HOST=chroma  # Service name in Docker network
-      - CHROMA_PORT=8000    # Internal ChromaDB port
-      - CHROMA_COLLECTION_NAME=memories
-      - CHROMA_PATH=/app/data/chroma
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USERNAME=neo4j
-      - NEO4J_PASSWORD=mem0graph
-      - HISTORY_DB_PATH=/app/data/history/history.db
-
-  otel-collector:
-      image: otel/opentelemetry-collector-contrib:0.111.0
-      command: ["--config=/etc/otel-collector-config.yaml"]
-      volumes:
-        - ${PWD}/otel-collector-config.yaml:/etc/otel-collector-config.yaml
-      ports:
-        - "4317:4317"  # OTLP gRPC
-        - "4318:4318"  # OTLP HTTP
-        - "13133:13133"  # Local health check
-      networks:
-        - dangeroo_network
-
-  zipkin:
-    image: openzipkin/zipkin
-    ports:
-      - "9411:9411"
+      #- CHROMA_HOST=chroma  # Service name in Docker network
+      #- CHROMA_PORT=8000    # Internal ChromaDB port
+      #- CHROMA_COLLECTION_NAME=memories
+      #- CHROMA_PATH=/app/data/chroma
+      #- NEO4J_URI=bolt://neo4j:7687
+      #- NEO4J_USERNAME=neo4j
+      #- NEO4J_PASSWORD=mem0graph
+      #- HISTORY_DB_PATH=/app/data/history/history.db
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: always
+    container_name: qdrant
     networks:
       - dangeroo_network
-
-  chroma:
-    image: chromadb/chroma:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    expose:
+      - 6333
+      - 6334
+      - 6335
+    configs:
+      - source: qdrant_config
+        target: /qdrant/config/production.yaml
     volumes:
-      - ./data/chroma:/chroma/chroma  # Bind mount for development
-    ports:
-      - "8000:8000"  # ChromaDB API is accessible at localhost:8000
-    networks:
-      - dangeroo_network
-    environment:
-      - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://otel-collector:4317/
-      - CHROMA_OPEN_TELEMETRY__SERVICE_NAME=chroma
-    depends_on:
-      - otel-collector
-      - zipkin
+      - ./data/qdrant:/qdrant/storage
 
   neo4j:
     image: neo4j:5.26.4
@@ -93,9 +79,14 @@ services:
 # these named volumes defined for potential production use
 volumes:
   data:
-  chroma_data:
+  qdrant_data:
   neo4j_data:
 
 networks:
   dangeroo_network:
     driver: bridge
+
+configs:
+  qdrant_config:
+    content: |
+      log_level: DEBUG

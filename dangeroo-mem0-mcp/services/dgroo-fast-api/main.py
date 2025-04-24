@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Any, Dict
 from mem0 import Memory, AsyncMemory
 from dotenv import load_dotenv
+from qdrant_client.http.models import CollectionInfo # Add this import
 
 import logging
 
@@ -15,10 +16,16 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 load_dotenv()
 
 # ChromaDB configuration
-CHROMA_HOST = os.environ.get("CHROMA_HOST", "chroma")
-CHROMA_PORT = os.environ.get("CHROMA_PORT", "8000")
-CHROMA_COLLECTION_NAME = os.environ.get("CHROMA_COLLECTION_NAME", "memories")
-CHROMA_PATH = os.environ.get("CHROMA_PATH", "/app/data/chroma")
+#CHROMA_HOST = os.environ.get("CHROMA_HOST", "chroma")
+#CHROMA_PORT = os.environ.get("CHROMA_PORT", "8000")
+#CHROMA_COLLECTION_NAME = os.environ.get("CHROMA_COLLECTION_NAME", "memories")
+#CHROMA_PATH = os.environ.get("CHROMA_PATH", "/app/data/chroma")
+
+QDRANT_HOST = os.environ.get("QDRANT_HOST", "qdrant")
+QDRANT_PORT = os.environ.get("QDRANT_PORT", "6333")
+QDRANT_COLLECTION_NAME = os.environ.get("QDRANT_COLLECTION_NAME", "memories")
+QDRANT_ONDISK = os.environ.get("QDRANT_ONDISK", "False").lower() == "true"
+QDRANT_PATH = os.environ.get("QDRANT_PATH", "/qdrant/storage")
 
 # Neo4j configuration
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
@@ -35,13 +42,23 @@ HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/data/history/history.d
 DEFAULT_CONFIG = {
     "version": "v1.1",
     "vector_store": {
-        "provider": "chroma",
+        "provider": "qdrant",
         "config": {
-            "host": CHROMA_HOST,
-            "port": int(CHROMA_PORT),
-            "collection_name": CHROMA_COLLECTION_NAME,
-            "path": CHROMA_PATH
+            "collection_name": QDRANT_COLLECTION_NAME,  # default
+            "embedding_model_dims": 1536,  # default
+            "host": QDRANT_HOST,
+            "port": 6333,
+            "path": QDRANT_PATH,
+            "url": None,
+            "api_key": None,
+            "on_disk": QDRANT_ONDISK
         }
+ #       "provider": "chroma",
+ #       "config": {
+ #           "host": CHROMA_HOST,
+ #           "port": int(CHROMA_PORT),
+ #           "collection_name": CHROMA_COLLECTION_NAME,
+#           "persist_directory": CHROMA_PATH,
     },
     "graph_store": {
         "provider": "neo4j",
@@ -63,7 +80,8 @@ DEFAULT_CONFIG = {
         "provider": "openai",
         "config": {
             "api_key": OPENAI_API_KEY,
-            "model": "text-embedding-3-small"
+            "model": "text-embedding-3-small",
+            "embedding_dims": 1536,
         }
     },
     "history_db_path": HISTORY_DB_PATH,
@@ -128,8 +146,15 @@ def add_memory(memory_create: MemoryCreate):
         )
 
     params = {k: v for k, v in memory_create.model_dump().items() if v is not None and k != "messages"}
+    messages_to_add = [m.model_dump() for m in memory_create.messages]
+    logging.info(f"Attempting to add memory with params: {params} and messages: {messages_to_add}")
     try:
-        response = MEMORY_INSTANCE.add(messages=[m.model_dump() for m in memory_create.messages], **params)
+        response = MEMORY_INSTANCE.add(messages=messages_to_add, **params)
+        logging.info(f"Memory.add response: {response}")
+        if not response.get("results") or len(response.get("results")) == 0:
+            error_msg = f"Memory insertion failed: no vectors stored. Response: {response}"
+            logging.error(error_msg)
+            raise Exception(error_msg)
         return JSONResponse(content=response)
     except Exception as e:
         logging.exception("Error in add_memory:")  # This will log the full traceback
@@ -270,9 +295,13 @@ def reset_memory():
 @app.get("/health", summary="Health check")
 def health_check():
     """Check if the API server is healthy."""
-    if not MEMORY_INSTANCE:
-        return JSONResponse(content={"status": "warning", "message": "Memory instance not initialized"}, status_code=200)
-    return {"status": "ok"}
+    try:
+         if not MEMORY_INSTANCE:
+              return JSONResponse(content={"status": "warning", "message": "Memory instance not initialized"}, status_code=200)
+         return {"status": "ok"}
+    except Exception as e:
+         logging.exception("Error in health_check:")
+         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/debug", summary="Debug server configuration")
@@ -317,25 +346,61 @@ def debug_info():
             
             # Try to list collections
             if hasattr(MEMORY_INSTANCE.vector_store, "list_cols"):
-                collections = MEMORY_INSTANCE.vector_store.list_cols()
-                connection_status["vector_store"]["collections"] = [
-                    getattr(col, "name", str(col)) for col in collections
-                ]
-                
-                # Extended ChromaDB diagnostics
-                if vector_store_type == "ChromaDB":
+                collections_result = MEMORY_INSTANCE.vector_store.list_cols()
+                logging.info(f"Raw list_cols result: {collections_result}") # Add logging
+
+                actual_collections_list = []
+                # Check if the result is the expected CollectionsResponse object
+                if hasattr(collections_result, 'collections') and isinstance(getattr(collections_result, 'collections'), list):
+                    actual_collections_list = collections_result.collections
+                    logging.info("Successfully extracted list from CollectionsResponse object.")
+                # Fallback for other potential structures (less likely now but kept for safety)
+                elif isinstance(collections_result, tuple) and len(collections_result) > 0:
+                     potential_list = collections_result[-1]
+                     if isinstance(potential_list, list):
+                         actual_collections_list = potential_list
+                         logging.info("Extracted list from tuple structure.")
+                     else:
+                         logging.warning(f"Unexpected tuple structure from list_cols: {collections_result}")
+                elif isinstance(collections_result, list):
+                    actual_collections_list = collections_result
+                    logging.info("list_cols returned a direct list.")
+                else:
+                    logging.warning(f"Unexpected return type or structure from list_cols: {type(collections_result)}, value: {collections_result}")
+
+                # Extract names from CollectionDescription objects in the final list
+                collection_names = []
+                for item in actual_collections_list:
+                    if hasattr(item, "name"):
+                        collection_names.append(item.name)
+                    else:
+                        # Fallback if it's not a CollectionDescription object, maybe it's already a string?
+                        collection_names.append(str(item))
+                        logging.warning(f"Item in collection list is not a CollectionDescription object: {item}")
+
+                connection_status["vector_store"]["collections"] = collection_names
+                logging.info(f"Parsed collection names: {collection_names}") # Add logging
+
+                # Extended Qdrant diagnostics (should now iterate over correct names)
+                if vector_store_type in ["Qdrant", "QdrantDB"]:
                     try:
-                        # Try to get all collection info
                         connection_status["vector_store"]["collection_details"] = {}
                         for coll_name in connection_status["vector_store"]["collections"]:
                             try:
-                                collection = MEMORY_INSTANCE.vector_store.client.get_collection(name=coll_name)
-                                count = collection.count()
+                                # For Qdrant, get_collection returns a dict with collection info.
+                                # get_collection returns a CollectionInfo object, not a dict
+                                collection_info: CollectionInfo = MEMORY_INSTANCE.vector_store.client.get_collection(collection_name=coll_name)
+                                # Access attributes directly
+                                vectors_count = getattr(collection_info, 'vectors_count', 'Unknown')
+                                points_count = getattr(collection_info, 'points_count', 'Unknown')
+                                status = getattr(collection_info, 'status', 'Unknown') # Assuming status attribute exists
+
                                 connection_status["vector_store"]["collection_details"][coll_name] = {
-                                    "count": count,
+                                    "vectors_count": vectors_count,
+                                    "points_count": points_count,
+                                    "status": str(status), # Convert status enum to string if necessary
                                     "exists": True
                                 }
-                                # Get actual collection the Memory instance is using
                                 if hasattr(MEMORY_INSTANCE.vector_store, "collection"):
                                     active_collection = MEMORY_INSTANCE.vector_store.collection
                                     if hasattr(active_collection, "name"):
@@ -404,7 +469,7 @@ def debug_info():
             mem_internals["class"] = type(MEMORY_INSTANCE).__name__
             mem_internals["vector_db_class"] = type(MEMORY_INSTANCE.vector_store).__name__
             mem_internals["enable_graph"] = MEMORY_INSTANCE.enable_graph
-            mem_internals["enable_history"] = MEMORY_INSTANCE.enable_history
+            mem_internals["enable_history"] = MEMORY_INSTANCE.enable_history if hasattr(MEMORY_INSTANCE, "enable_history") else False
             
             # Check where mem0 looks for collections
             if hasattr(MEMORY_INSTANCE.vector_store, "collection_name"):
@@ -423,4 +488,8 @@ def debug_info():
 @app.get("/", summary="Redirect to the OpenAPI documentation", include_in_schema=False)
 def home():
     """Redirect to the OpenAPI documentation."""
-    return RedirectResponse(url='/docs')
+    try:
+        return RedirectResponse(url='/docs')
+    except Exception as e:
+        logging.exception("Error in home redirect:")
+        raise HTTPException(status_code=500, detail=str(e))

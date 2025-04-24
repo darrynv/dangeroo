@@ -8,9 +8,9 @@ This document provides C4 model diagrams for the Dangeroo Mem0 MCP Server. C4 mo
 C4Context
     title System Context diagram for Dangeroo Mem0 MCP Server
 
-    Person(user, "User", "A user interacting with Claude")
+    Person(user, "User", "A user interacting with Calling Process")
     
-    System(claudeSystem, "Claude AI", "Claude language model with MCP capabilities")
+    System(callingProcessSystem, "Calling Process", "Process with MCP capabilities")
     
     System_Boundary(dangerooSystem, "Dangeroo Mem0 MCP System") {
         System(mcpServer, "MCP Server", "Routes tool calls to memory services")
@@ -19,8 +19,8 @@ C4Context
 
     System_Ext(openAI, "OpenAI API", "Provides embeddings and LLM capabilities")
     
-    Rel(user, claudeSystem, "Interacts with")
-    Rel(claudeSystem, mcpServer, "Makes tool calls to", "MCP Protocol")
+    Rel(user, callingProcessSystem, "Interacts with")
+    Rel(callingProcessSystem, mcpServer, "Makes tool calls to", "MCP Protocol")
     Rel(mcpServer, memoryBackend, "Routes requests to", "HTTP/REST")
     Rel(memoryBackend, openAI, "Uses for embeddings and LLM", "HTTP/REST")
 
@@ -33,12 +33,12 @@ C4Context
 C4Container
     title Container diagram for Dangeroo Mem0 MCP Server
 
-    Person(user, "User", "A user interacting with Claude")
+    Person(user, "User", "A user interacting with Calling Process")
     
-    System(claudeSystem, "Claude AI", "Claude language model with MCP capabilities")
+    System(callingProcessSystem, "Calling Process", "Process with MCP capabilities")
     
     System_Boundary(dangerooSystem, "Dangeroo Mem0 MCP System") {
-        Container(mcpNodeServer, "MCP Server", "Node.js", "Handles Claude's MCP tool calls")
+        Container(mcpNodeServer, "MCP Server", "Node.js", "Handles Calling Process's MCP tool calls")
         
         Container_Boundary(backendServices, "Memory Backend Services") {
             Container(fastApi, "FastAPI Service", "Python", "Provides memory API endpoints")
@@ -53,8 +53,8 @@ C4Container
     
     System_Ext(openAI, "OpenAI API", "Provides embeddings and LLM capabilities")
     
-    Rel(user, claudeSystem, "Interacts with")
-    Rel(claudeSystem, mcpNodeServer, "Makes tool calls to", "MCP Protocol")
+    Rel(user, callingProcessSystem, "Interacts with")
+    Rel(callingProcessSystem, mcpNodeServer, "Makes tool calls to", "MCP Protocol")
     Rel(mcpNodeServer, fastApi, "Sends requests to", "HTTP/REST")
     
     Rel(fastApi, chroma, "Stores and queries vectors in", "HTTP")
@@ -74,8 +74,8 @@ C4Container
 C4Component
     title Component diagram for MCP Server
 
-    Person(user, "User", "A user interacting with Claude")
-    System(claudeSystem, "Claude AI", "Claude language model with MCP capabilities")
+    Person(user, "User", "A user interacting with Calling Process")
+    System(callingProcessSystem, "Calling Process", "Process with MCP capabilities")
     
     Container_Boundary(mcpServer, "MCP Server") {
         Component(serverCore, "Server Core", "TypeScript", "Core MCP server implementation")
@@ -86,8 +86,8 @@ C4Component
     
     Container(fastApi, "FastAPI Service", "Provides memory API endpoints")
     
-    Rel(user, claudeSystem, "Interacts with")
-    Rel(claudeSystem, serverCore, "Makes tool calls to", "MCP Protocol")
+    Rel(user, callingProcessSystem, "Interacts with")
+    Rel(callingProcessSystem, serverCore, "Makes tool calls to", "MCP Protocol")
     
     Rel(serverCore, toolHandlers, "Delegates requests to")
     Rel(toolHandlers, storageManager, "Uses")
@@ -104,7 +104,7 @@ C4Component
 C4Component
     title Component diagram for FastAPI Service
 
-    Container(mcpServer, "MCP Server", "Handles Claude's MCP tool calls")
+    Container(mcpServer, "MCP Server", "Handles Calling Process's MCP tool calls")
     System_Ext(openAI, "OpenAI API", "Provides embeddings and LLM capabilities")
     
     Container_Boundary(fastApiService, "FastAPI Service") {

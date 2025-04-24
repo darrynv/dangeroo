@@ -6,7 +6,7 @@ This document provides a detailed overview of the Dangeroo Mem0 MCP Server archi
 
 ```mermaid
 graph TB
-    Claude["Claude (AI Assistant)"]
+    CallingProcess["Calling Process"]
     MCP["MCP Server (Node.js)"]
     FastAPI["FastAPI Service"]
     Chroma["ChromaDB (Vector DB)"]
@@ -16,7 +16,7 @@ graph TB
     OpenTelemetry["OpenTelemetry Collector"]
     Zipkin["Zipkin (Monitoring)"]
 
-    Claude -->|Tool calls| MCP
+    CallingProcess -->|Tool calls| MCP
     MCP -->|REST API| FastAPI
     FastAPI -->|Vector Queries| Chroma
     FastAPI -->|Graph Queries| Neo4j
@@ -30,7 +30,7 @@ graph TB
     classDef dbComponent fill:#d5e8d4,stroke:#333,stroke-width:1px;
     classDef monitoringComponent fill:#fff2cc,stroke:#333,stroke-width:1px;
 
-    class Claude aiComponent;
+    class CallingProcess aiComponent;
     class MCP,FastAPI apiComponent;
     class Chroma,Neo4j,History dbComponent;
     class OpenTelemetry,Zipkin monitoringComponent;
@@ -43,13 +43,13 @@ graph TB
 C4Container
     title Container diagram for Dangeroo Mem0 MCP Server
 
-    Person(user, "User", "A user interacting with Claude")
+    Person(user, "User", "A user interacting with Calling Process")
     
     System_Boundary(dangeroo, "Dangeroo Mem0 MCP System") {
-        Container(claude, "Claude", "AI Assistant", "Provides AI capabilities and memory tools")
+        Container(callingProcess, "Calling Process", "AI Assistant", "Provides AI capabilities and memory tools")
         
         Container_Boundary(mcpServer, "MCP Server") {
-            Container(mcp, "MCP Server", "Node.js", "Routes Claude tool calls to appropriate endpoints")
+            Container(mcp, "MCP Server", "Node.js", "Routes Calling Process tool calls to appropriate endpoints")
         }
         
         Container_Boundary(backend, "FastAPI Backend") {
@@ -67,8 +67,8 @@ C4Container
         }
     }
     
-    Rel(user, claude, "Interacts with")
-    Rel(claude, mcp, "Makes tool calls")
+    Rel(user, callingProcess, "Interacts with")
+    Rel(callingProcess, mcp, "Makes tool calls")
     Rel(mcp, fastApi, "REST API calls")
     Rel(fastApi, chroma, "Vector queries")
     Rel(fastApi, neo4j, "Graph queries")
@@ -81,8 +81,8 @@ C4Container
 ## Detailed Component View
 ```mermaid
 graph TD
-    subgraph Claude_AI
-        Claude["Claude AI Assistant"]
+    subgraph Calling_Process
+        CallingProcess["Calling Process"]
     end
 
     subgraph MCP_Server_NodeJS
@@ -116,7 +116,7 @@ graph TD
         ZipkinUI["Zipkin UI"]
     end
 
-    Claude -->|Tool calls| MCP
+    CallingProcess -->|Tool calls| MCP
     MCP -->|Invokes| AddTool & SearchTool & DeleteTool
     
     AddTool -->|POST /memories| API
@@ -144,7 +144,7 @@ graph TD
 
 ```mermaid
 sequenceDiagram
-    participant Claude as Claude AI
+    participant CallingProcess as Calling Process
     participant MCP as MCP Server
     participant API as FastAPI Service
     participant Mem0 as Memory Module
@@ -153,7 +153,7 @@ sequenceDiagram
     participant Neo4j as Neo4j
     participant History as History DB
 
-    Claude->>MCP: add_memory tool call
+    CallingProcess->>MCP: add_memory tool call
     MCP->>API: POST /memories
     API->>Mem0: Memory.add()
     
@@ -176,14 +176,14 @@ sequenceDiagram
     
     Mem0-->>API: Return memory ID
     API-->>MCP: Return success response
-    MCP-->>Claude: Return success message
+    MCP-->>CallingProcess: Return success message
 ```
 
 ## Memory Retrieval Flow - search_memory
 
 ```mermaid
 sequenceDiagram
-    participant Claude as Claude AI
+    participant CallingProcess as Calling Process
     participant MCP as MCP Server
     participant API as FastAPI Service
     participant Mem0 as Memory Module
@@ -191,7 +191,7 @@ sequenceDiagram
     participant Chroma as ChromaDB
     participant Neo4j as Neo4j
 
-    Claude->>MCP: search_memory tool call
+    CallingProcess->>MCP: search_memory tool call
     MCP->>API: POST /search
     API->>Mem0: Memory.search()
     
@@ -210,7 +210,7 @@ sequenceDiagram
     
     Mem0-->>API: Return search results
     API-->>MCP: Return formatted results
-    MCP-->>Claude: Return memory content
+    MCP-->>CallingProcess: Return memory content
 ```
 
 ## Data Model
@@ -275,7 +275,7 @@ classDiagram
 
 ```mermaid
 flowchart TD
-    A[Start] --> B[Claude calls add_memory tool]
+    A[Start] --> B[Calling Process calls add_memory tool]
     B --> C{MCP Server}
     C --> |POST /memories| D[FastAPI endpoint]
     D --> E[Validate input]
@@ -292,7 +292,7 @@ flowchart TD
     
     K & L & M --> N[Return memory ID]
     N --> O[Return success to MCP]
-    O --> P[Return to Claude]
+    O --> P[Return to Calling Process]
     P --> Q[End]
 ```
 
@@ -300,7 +300,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Start] --> B[Claude calls search_memory tool]
+    A[Start] --> B[Calling Process calls search_memory tool]
     B --> C{MCP Server}
     C --> |POST /search| D[FastAPI endpoint]
     D --> E[Validate query]
@@ -316,7 +316,7 @@ flowchart TD
     J & K --> L[Combine & Rank Results]
     L --> M[Format response]
     M --> N[Return to MCP]
-    N --> O[Return to Claude]
+    N --> O[Return to Calling Process]
     O --> P[End]
 ```
 
@@ -341,7 +341,7 @@ graph TB
         OpenAI["OpenAI API"]
     end
     
-    User -->|"Claude AI"| MCP
+    User -->|"Calling Process"| MCP
     MCP -->|"http://localhost:8888"| FastAPI
     FastAPI -->|"http://chroma:8000"| Chroma
     FastAPI -->|"bolt://neo4j:7687"| Neo4j

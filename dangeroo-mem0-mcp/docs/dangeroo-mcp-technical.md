@@ -4,7 +4,7 @@ This document provides detailed technical information about the Dangeroo MCP Ser
 
 ## MCP Server Implementation
 
-The MCP (Model Context Protocol) Server in the Dangeroo system acts as a bridge between Claude AI and the memory management backend. It implements tools that Claude can use to store, retrieve, and manage memory.
+The MCP (Model Context Protocol) Server in the Dangeroo system acts as a bridge between the Calling Process and the memory management backend. It implements tools that the Calling Process can use to store, retrieve, and manage memory.
 
 ```mermaid
 classDiagram
@@ -70,12 +70,12 @@ flowchart TD
 
 ```mermaid
 sequenceDiagram
-    participant Claude as Claude
+    participant CallingProcess as Calling Process
     participant MCP as MCP Server
     participant Client as Memory Client
     participant API as FastAPI Service
     
-    Claude->>MCP: add_memory(content, userId, ...)
+    CallingProcess->>MCP: add_memory(content, userId, ...)
     
     alt Cloud Mode
         MCP->>Client: cloudClient.add(messages, options)
@@ -90,19 +90,19 @@ sequenceDiagram
     
     API-->>Client: Response with memory ID
     Client-->>MCP: Result
-    MCP-->>Claude: Success message
+    MCP-->>CallingProcess: Success message
 ```
 
 ### search_memory Tool
 
 ```mermaid
 sequenceDiagram
-    participant Claude as Claude
+    participant CallingProcess as Calling Process
     participant MCP as MCP Server
     participant Client as Memory Client
     participant API as FastAPI Service
     
-    Claude->>MCP: search_memory(query, userId, ...)
+    CallingProcess->>MCP: search_memory(query, userId, ...)
     
     alt Cloud Mode
         MCP->>Client: cloudClient.search(query, options)
@@ -117,7 +117,7 @@ sequenceDiagram
     
     API-->>Client: Search results
     Client-->>MCP: Formatted results
-    MCP-->>Claude: JSON result
+    MCP-->>CallingProcess: JSON result
 ```
 
 ## MCP Configuration
@@ -181,7 +181,7 @@ classDiagram
 
 ```mermaid
 flowchart TD
-    Claude[Claude] -->|"Tool call"| MCP[MCP Server]
+    CallingProcess[Calling Process] -->|"Tool call"| MCP[MCP Server]
     MCP -->|"HTTP Request"| FastAPI[FastAPI Service]
     
     FastAPI -->|"Format message"| Memory[Memory Module]
@@ -199,13 +199,13 @@ flowchart TD
     Chroma & Neo4j & SQLite -->|"Success"| Memory
     Memory -->|"Success + ID"| FastAPI
     FastAPI -->|"Response"| MCP
-    MCP -->|"Tool response"| Claude
+    MCP -->|"Tool response"| CallingProcess
 
     classDef ai fill:#f9d5e5,stroke:#333,stroke-width:1px;
     classDef api fill:#dae8fc,stroke:#6c8ebf,stroke-width:1px;
     classDef db fill:#d5e8d4,stroke:#82b366,stroke-width:1px;
     
-    class Claude,OpenAI,OpenAILLM ai;
+    class CallingProcess,OpenAI,OpenAILLM ai;
     class MCP,FastAPI,Memory api;
     class Chroma,Neo4j,SQLite db;
 ```
@@ -214,7 +214,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Claude[Claude] -->|"Tool call"| MCP[MCP Server]
+    CallingProcess[Calling Process] -->|"Tool call"| MCP[MCP Server]
     MCP -->|"HTTP Request"| FastAPI[FastAPI Service]
     
     FastAPI -->|"Format query"| Memory[Memory Module]
@@ -230,13 +230,13 @@ flowchart TD
     
     Memory -->|"Combined results"| FastAPI
     FastAPI -->|"Formatted response"| MCP
-    MCP -->|"Tool response"| Claude
+    MCP -->|"Tool response"| CallingProcess
 
     classDef ai fill:#f9d5e5,stroke:#333,stroke-width:1px;
     classDef api fill:#dae8fc,stroke:#6c8ebf,stroke-width:1px;
     classDef db fill:#d5e8d4,stroke:#82b366,stroke-width:1px;
     
-    class Claude,OpenAI ai;
+    class CallingProcess,OpenAI ai;
     class MCP,FastAPI,Memory api;
     class Chroma,Neo4j db;
 ```
@@ -306,8 +306,8 @@ graph TD
 
 ```mermaid
 graph TB
-    subgraph "Claude Environment"
-        Claude[Claude AI]
+    subgraph "Calling Process Environment"
+        CallingProcess[Calling Process]
         MCPTools["MCP Tools<br>- add_memory<br>- search_memory<br>- delete_memory"]
     end
     
@@ -332,7 +332,7 @@ graph TB
         OpenAI[OpenAI API]
     end
     
-    Claude -->|"Tool Calls"| MCPTools
+    CallingProcess -->|"Tool Calls"| MCPTools
     MCPTools -->|"Invokes"| MCP
     MCP -->|"HTTP Requests"| LocalAPI
     LocalAPI -->|"REST API"| Routes
@@ -349,7 +349,7 @@ graph TB
     classDef api fill:#d5e8d4,stroke:#82b366,stroke-width:1px;
     classDef db fill:#fff2cc,stroke:#d6b656,stroke-width:1px;
     
-    class Claude,OpenAI ai;
+    class CallingProcess,OpenAI ai;
     class MCP,LocalAPI,MCPTools server;
     class FastAPI,MemoryModule,Routes api;
     class ChromaDB,Neo4jDB,HistoryDB db;
