@@ -4,6 +4,12 @@
 
 # Dangeroo - Software Engineering Orchestrator
 
+[![MCP](https://img.shields.io/badge/Protocol-MCP-blue)](https://github.com/agentdesk/model-context-protocol)
+[![Mem0](https://img.shields.io/badge/Memory%20Layer-Mem0-blueviolet)](https://github.com/mem0ai/mem0)
+[![Qdrant](https://img.shields.io/badge/Vector%20DB-Qdrant-brightgreen)](https://qdrant.tech/)
+[![Neo4j](https://img.shields.io/badge/Graph%20DB-Neo4j-blue)](https://neo4j.com/)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-green)](https://fastapi.tiangolo.com/)
+
 ## Overview
 
 **(Updated)**
